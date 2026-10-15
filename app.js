@@ -18,7 +18,8 @@ const FIELDS = {
   minPreTax:0, minRoth403b:0, minRothIRA:0, spGross:66039, spPreTax:0, spRoth401k:0, spRothIRA:0,
   yearsToRetire:20, accReturn:{v:7,pct:1}, salaryGrowth:{v:0,pct:1},
   minTradBal:50000, churchPlanPct:{v:100,pct:1}, minRothBal:10000, spTradBal:25000, spRothBal:5000,
-  miscTradBal:15000, miscRothBal:0, brokerageBal:0,
+  miscTradBal:15000, miscRothBal:0, brokerageBal:0, brokContrib:0, cashBal:5000, cashContrib:0, cashRate:{v:3,pct:1},
+  whMinFed:0, whMinState:0, whSpFed:0, whSpState:0, estQuarterly:0, lastYearTax:0,
   todaysDollars:{v:true,bool:1}, retSpend:120000, retHousing:40000, ssMin:27000, ssSp:18000, pension:0,
   pensionCOLA:{v:false,bool:1}, retYears:30, retReturn:{v:5,pct:1}, retVol:{v:12,pct:1}, inflation:{v:2.5,pct:1},
   dist:{v:'normal',sel:1}, brokTaxDrag:{v:15,pct:1}, drawOrder:{v:'roth-first',sel:1},
@@ -27,6 +28,14 @@ const FIELDS = {
 };
 const spec = k => (typeof FIELDS[k] === 'object' ? FIELDS[k] : { v: FIELDS[k] });
 let status = 'MFJ';
+// Values that live outside ordinary inputs (budget lines, budget level, housing link)
+const VS = { budget: {}, budgetMode: 'standard', linkHousing: true, budgetExample: false };
+// Example monthly budget that goes with the example numbers (replaced as soon as someone enters their own)
+const EXAMPLE_BUDGET = { h_rent: 2600, h_util: 350, h_ins: 120, h_tax: 450, h_furn: 100, h_repair: 150, g_church: 1500, g_other: 200,
+  f_groc: 1100, f_dine: 300, t_car: 400, t_fuel: 200, t_ins: 150, t_maint: 80, k_care: 800, k_act: 150, m_prem: 500, m_oop: 150, m_life: 60,
+  d_student: 300, p_phone: 150, p_subs: 60, p_cloth: 150, p_care: 60, p_house: 120, o_gifts: 100, o_travel: 250, o_ministry: 50, o_misc: 200 };
+const housingBudgetMo = () => Object.entries(VS.budget).filter(([k]) => k.startsWith('h_')).reduce((a, [, v]) => a + (+v || 0), 0);
+const budgetMo = () => Object.values(VS.budget).reduce((a, v) => a + (+v || 0), 0);
 
 function setInputs(vals){
   for (const k of Object.keys(FIELDS)) {
@@ -35,9 +44,15 @@ function setInputs(vals){
     if (s.bool) el.checked = !!v; else el.value = v;
   }
   setStatus(vals && vals.__status ? vals.__status : 'MFJ', true);
+  VS.budget = JSON.parse(JSON.stringify(vals && vals.budget ? vals.budget : (vals ? {} : EXAMPLE_BUDGET)));
+  VS.budgetMode = vals && vals.budgetMode || 'standard';
+  VS.budgetExample = !vals ? true : !!vals.budgetExample;
+  VS.linkHousing = vals && 'linkHousing' in vals ? !!vals.linkHousing : true;
+  if ($('linkHousing')) $('linkHousing').checked = VS.linkHousing;
+  if (window.App && App.renderBudget) App.renderBudget();
 }
 function rawInputs(){
-  const o = { __status: status };
+  const o = { __status: status, budget: JSON.parse(JSON.stringify(VS.budget)), budgetMode: VS.budgetMode, linkHousing: VS.linkHousing, budgetExample: VS.budgetExample };
   for (const k of Object.keys(FIELDS)) { const el = $(k); const s = spec(k);
     o[k] = s.bool ? el.checked : (s.sel ? el.value : (parseFloat(el.value) || 0)); }
   return o;
@@ -47,6 +62,14 @@ function readParams(){
   for (const k of Object.keys(FIELDS)) { const s = spec(k); p[k] = s.pct ? raw[k] / 100 : raw[k]; }
   p.convBracket = parseFloat(raw.convBracket);
   p.convStopAge = 0;
+  applyHousingLink(p);
+  return p;
+}
+function applyHousingLink(p){
+  const h = housingBudgetMo(), on = VS.linkHousing && h > 0, el = $('housingActual');
+  if (on) { p.housingActual = h * 12; if (el) { el.value = Math.round(h * 12); } }
+  if (el) { el.readOnly = on; el.closest('.field').classList.toggle('linked', on);
+    const sm = el.closest('.field').querySelector('small'); if (sm) sm.textContent = on ? "From your budget's housing lines" : 'Mortgage/rent, utilities, furnishings'; }
   return p;
 }
 function setStatus(s, silent){
@@ -60,6 +83,8 @@ $('stSingle').onclick = () => setStatus('Single');
 
 /* ---------- Tabs ---------- */
 function showTab(name){
+  if (name === 'today') name = 'home';
+  if (document.body.classList.contains('simple') && (name === 'years' || name === 'rules')) name = 'home';
   document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.tab === name));
   document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== name);
   store.set('mtw.tab', name);
@@ -96,7 +121,7 @@ $('btnTaxReset').onclick = () => {
 let last = null, timer = null;
 let pendingFast = false;
 function schedule(fast){ clearTimeout(timer); pendingFast = !!fast; timer = setTimeout(() => recalc(pendingFast), fast ? 40 : 200); }
-const NOCALC = /^(tx\d+|scenName|aiKey|chatInput|learnSearch|wz|demo|sl-|aEmail|aPass|vP|nPw|nVp)/;
+const NOCALC = /^(tx\d+|scenName|aiKey|chatInput|learnSearch|wz|demo|sl-|aEmail|aPass|vP|nPw|nVp|b_|pl-|linkHousing)/;
 document.addEventListener('input', e => { const t = e.target; if (t.matches('input,select') && t.type !== 'range' && !NOCALC.test(t.id || 'x') && !t.closest('.wizard')) schedule(); });
 document.addEventListener('change', e => { const t = e.target; if (t.matches('input[type=checkbox],select') && A_FIELD(t.id)) schedule(); });
 function A_FIELD(id){ return Object.prototype.hasOwnProperty.call(FIELDS, id); }
@@ -185,10 +210,27 @@ function renderToday(r){
     row('Gross pay', mi.gross, sp.gross) + row('Payroll tax (SECA / FICA)', mi.payroll, sp.payroll, 1) +
     row('Income tax (fed + MA)', mi.incomeTax, sp.incomeTax, 1) + row('Pre-tax savings', mi.preTax, sp.preTax, 1) +
     row('Roth savings', mi.roth, sp.roth, 1) +
-    `<tr class="total"><td>Take-home</td><td class="r">${fmt(mi.net)}</td>${mfj?`<td class="r">${fmt(sp.net)}</td>`:''}<td class="r">${fmt(t.householdNet)}</td></tr>` +
+    `<tr class="total"><td>Take-home</td><td class="r">${fmt(mi.net)}</td>${mfj?`<td class="r">${fmt(sp.net)}</td>`:''}<td class="r">${fmt(t.takeHome)}</td></tr>` +
+    `<tr><td>Cash &amp; brokerage saving</td>${mfj?'<td></td>':''}<td></td><td class="r ${t.otherSaving>=0.5?'neg':''}">${t.otherSaving>=0.5?'−':''}${fmt(t.otherSaving)}</td></tr>` +
+    `<tr class="total"><td>Left for spending &amp; giving</td>${mfj?'<td></td>':''}<td></td><td class="r">${fmt(t.householdNet)}</td></tr>` +
     `<tr><td class="muted">Per month</td>${mfj?'<td></td>':''}<td></td><td class="r">${fmt(t.householdNet/12)}</td></tr>`;
+  renderSetAside(r);
 }
 
+function renderSetAside(r){
+  const a = r.today.setAside, owe = a.gap > 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const next = a.dueDates.find(d => d >= today);
+  const dateTxt = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  $('setAsideOut').innerHTML = `<div class="setaside">
+    <div class="mini-kpis"><div><span class="eyebrow">Tax for the year</span><b>${fmt(a.due)}</b></div><div><span class="eyebrow">Set aside</span><b>${fmt(a.set)}</b></div>
+      <div><span class="eyebrow">${owe ? 'Likely owed in April' : 'Likely refund'}</span><b style="color:var(--${owe ? 'bad' : 'good'})">${fmt(Math.abs(a.gap))}</b></div></div>
+    <p class="small" style="margin:0">${owe ? (a.safe ? '<span class="status-pill warn">Owe, but likely no penalty</span>' : '<span class="status-pill bad">Under-withheld</span>') : '<span class="status-pill good">Covered</span>'}
+      Includes federal income tax, ${fmt(r.today.seca.total)} self-employment tax and ${esc(E.TAX.state.name)} tax.</p>
+    ${owe ? `<p class="small" style="margin:0">To cover it, ask the church for about <strong>${fmt(a.churchFedMonthly)}/mo</strong> in voluntary federal withholding${a.churchStateMonthly >= 1 ? ` and <strong>${fmt(a.churchStateMonthly)}/mo</strong> state` : ''}, or pay about <strong>${fmt(a.quarterlyNeeded)}</strong> each quarter.</p>` : ''}
+    <div class="duedates">${a.dueDates.map((d, i) => `<div class="${d < today ? 'past' : ''}"><span class="muted">Q${i + 1}${d === next ? ' · next' : ''}</span><b>${dateTxt(d)}</b></div>`).join('')}</div>
+    <p class="small muted" style="margin:0">Estimate only. Underpayment penalties are generally avoided if you owe less than $1,000, or set aside at least 90% of this year's tax or 100% of last year's (110% above $150,000 of income).</p></div>`;
+}
 function renderGrow(r){
   const e = r.acc.end, total = E.sumB(e), Y = Math.round(r.p.yearsToRetire);
   const real = total / Math.pow(1 + r.p.inflation, Y);
@@ -196,7 +238,9 @@ function renderGrow(r){
     kpi('At retirement', fmt(total), `${fmt(real)} in today's dollars`) +
     kpi('Traditional', fmt(e.mChurch + e.mTrad + e.sTrad), `${fmt(e.mChurch)} housing-eligible`) +
     kpi('Roth', fmt(e.roth), 'Tax-free, no RMDs') +
-    kpi('Contributed', fmt(r.acc.contributed.pre + r.acc.contributed.roth), `${fmt(r.acc.contributed.pre)} pre-tax`);
+    kpi('Contributed', fmt(r.acc.contributed.pre + r.acc.contributed.roth + (r.acc.contributed.brok || 0)), `${fmt(r.acc.contributed.pre)} pre-tax`) +
+    (() => { const mo = budgetMo() > 0 ? budgetMo() : r.today.householdNet / 12; const m = mo > 0 ? r.p.cashBal / mo : 0;
+      return kpi('Emergency fund', `${m.toFixed(1)} mo`, `${fmt(r.p.cashBal)} covers ${m.toFixed(1)} months of ${budgetMo() > 0 ? 'budgeted spending' : 'spending'}`, m >= 3 ? 'good' : m >= 1 ? 'warn' : 'bad'); })();
   $('growTable').innerHTML = `<tr><th>Bucket</th><th class="r">Today</th><th class="r">At retirement</th></tr>` +
     [['Minister church plan (housing-eligible)','mChurch'],['Other Traditional','mTrad'],['Spouse Traditional','sTrad'],['Roth (all)','roth'],['Taxable brokerage','brok']]
       .map(([l,k]) => `<tr><td>${l}</td><td class="r">${fmt(r.acc.path[0][k])}</td><td class="r">${fmt(e[k])}</td></tr>`).join('') +
@@ -479,7 +523,7 @@ $('btnTests').onclick = () => {
 /* ---------- Shared API for account.js and ai.js ---------- */
 window.App = {
   E, $, esc, fmt, pctf, store, showTab, mdToHtml, compute, readParams, rawInputs, setInputs, setStatus, schedule,
-  recalc: fast => recalc(fast), getLast: () => last, onRender: f => renderHooks.push(f), fields: () => Object.keys(FIELDS), spec,
+  recalc: fast => recalc(fast), getLast: () => last, VS, budgetMo, housingBudgetMo, setView, onRender: f => renderHooks.push(f), fields: () => Object.keys(FIELDS), spec,
   auditPrompt: () => last ? auditPrompt(last) : '',
   localScenarios: () => localBackend.list(),
   clearLocal(){ try { Object.keys(localStorage).filter(k => k.startsWith('mtw.')).forEach(k => localStorage.removeItem(k)); } catch {} },
@@ -491,9 +535,19 @@ window.App = {
 $('state').innerHTML = E.STATES.map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join('');
 loadTax(); buildTaxFields();
 setInputs(store.get('mtw.inputs', null));
-const TABS = ['today','grow','retire','years','scen','audit','learn','account','rules'];
-const tab = (location.hash || '').slice(1) || store.get('mtw.tab', 'today');
-showTab(TABS.includes(tab) ? tab : 'today');
+const TABS = ['home','budget','pay','grow','retire','years','scen','audit','learn','account','rules','today'];
+function setView(v){
+  document.body.classList.toggle('simple', v === 'simple');
+  $('viewSimple').setAttribute('aria-pressed', v === 'simple'); $('viewDetailed').setAttribute('aria-pressed', v !== 'simple');
+  store.set('mtw.view', v);
+  const cur = store.get('mtw.tab', 'home'); if (v === 'simple' && (cur === 'years' || cur === 'rules')) showTab('home');
+  if (last) requestAnimationFrame(() => drawCharts(last));
+}
+$('viewSimple').onclick = () => setView('simple'); $('viewDetailed').onclick = () => setView('detailed');
+setView(store.get('mtw.view', 'simple'));
+$('linkHousing').addEventListener('change', e => { VS.linkHousing = e.target.checked; schedule(); });
+const tab = (location.hash || '').slice(1) || store.get('mtw.tab', 'home');
+showTab(TABS.includes(tab) ? tab : 'home');
 recalc();
 reloadScen();
 window.addEventListener('load', () => last && drawCharts(last));

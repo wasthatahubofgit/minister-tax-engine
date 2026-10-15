@@ -279,6 +279,9 @@ function computeToday(p, cfg = TAX) {
     roth: mfj ? (p.spRoth401k + p.spRothIRA) : 0
   };
   spouse.net = spouse.gross - spouse.payroll - spouse.incomeTax - spouse.preTax - spouse.roth;
+  // After-tax saving outside retirement plans (cash reserve, brokerage) comes out of take-home
+  const otherSaving = (p.cashContrib || 0) + (p.brokContrib || 0);
+  const takeHome = minister.net + spouse.net;          // after taxes and retirement saving
 
   // Warnings
   const warnings = [];
@@ -306,8 +309,36 @@ function computeToday(p, cfg = TAX) {
     excludable, housingExcess, seca, spFICA, w2, minScenario: m,
     shield: cur.shield, shieldHousing, shieldSEDed, extraPayroll: cur.extraPayroll, netAdvantage: cur.net,
     seDeduction: m.seDed, breakEven, marginalFed: m.fed.marginal, minister, spouse,
-    householdNet: minister.net + spouse.net, warnings,
+    takeHome, otherSaving, householdNet: takeHome - otherSaving, warnings,
+    setAside: taxSetAside(m, seca, p, mfj),
     limits: { minDeferral: minDefLim, spDeferral: mfj ? deferralLimit(p.spAge, cfg) : 0 }
+  };
+}
+
+/* =====================================================================
+   TAX SET-ASIDE CHECK (Pub. 517: ministers have no mandatory withholding;
+   they cover income tax + SE tax with voluntary withholding and/or
+   quarterly estimated payments, Form 1040-ES).
+   ===================================================================== */
+const EST_DUE_2026 = ['2026-04-15', '2026-06-15', '2026-09-15', '2027-01-15'];
+function taxSetAside(m, seca, p, mfj){
+  const n = v => (+v || 0);
+  const fedDue = m.fed.tax + seca.total + m.addlMed, stateDue = m.stTax;
+  const est = n(p.estQuarterly) * 4;
+  const fedSet = 12 * (n(p.whMinFed) + (mfj ? n(p.whSpFed) : 0)) + est;
+  const stateSet = 12 * (n(p.whMinState) + (mfj ? n(p.whSpState) : 0));
+  const due = fedDue + stateDue, set = fedSet + stateSet, gap = due - set;
+  const lastYear = n(p.lastYearTax), hi = m.agi > 150000;
+  const safeHarbor = Math.min(0.9 * due, lastYear > 0 ? lastYear * (hi ? 1.1 : 1) : Infinity);
+  return {
+    fedDue, stateDue, due, fedSet, stateSet, set, gap,
+    safeHarbor, safe: set >= safeHarbor || gap < 1000,
+    // To cover the gap from the church paycheck alone (voluntary withholding, Form W-4)
+    churchFedMonthly: Math.max(0, (fedDue - 12 * (mfj ? n(p.whSpFed) : 0) - est) / 12),
+    churchStateMonthly: Math.max(0, (stateDue - 12 * (mfj ? n(p.whSpState) : 0)) / 12),
+    // Or with quarterly estimated payments
+    quarterlyNeeded: Math.max(0, (fedDue - 12 * (n(p.whMinFed) + (mfj ? n(p.whSpFed) : 0))) / 4),
+    dueDates: EST_DUE_2026
   };
 }
 
@@ -327,6 +358,7 @@ function accumulate(p) {
     roth:    p.minRothBal + (mfj ? p.spRothBal : 0) + p.miscRothBal,
     brok:    p.brokerageBal
   };
+  let cash = p.cashBal || 0;
   const path = [{ year: 0, ...b, total: sumB(b) }];
   let contributed = { pre: 0, roth: 0 };
   for (let y = 1; y <= Y; y++) {
@@ -337,11 +369,12 @@ function accumulate(p) {
     b.mTrad   = b.mTrad   * (1 + r) + minPre * (1 - elig);
     b.sTrad   = b.sTrad   * (1 + r) + spPre;
     b.roth    = b.roth    * (1 + r) + rothC;
-    b.brok    = b.brok    * (1 + r * (1 - p.brokTaxDrag));
-    contributed.pre += minPre + spPre; contributed.roth += rothC;
+    b.brok    = b.brok    * (1 + r * (1 - p.brokTaxDrag)) + (p.brokContrib || 0) * f;
+    cash      = cash * (1 + (p.cashRate || 0)) + (p.cashContrib || 0) * f;
+    contributed.pre += minPre + spPre; contributed.roth += rothC; contributed.brok = (contributed.brok || 0) + (p.brokContrib || 0) * f;
     path.push({ year: y, ...b, total: sumB(b) });
   }
-  return { end: { ...b }, path, contributed };
+  return { end: { ...b }, path, contributed, cashEnd: cash };
 }
 function sumB(b) { return b.mChurch + b.mTrad + b.sTrad + b.roth + b.brok; }
 
@@ -648,6 +681,12 @@ function selfTests() {
     add('Flat-rate state 3.5% on $100k', stateTax(100000, 'MFJ', [45, 45], 0), 3500);
     cfg_state_swap(saved); }
 
+  { const base = { status: 'MFJ', minAge: 45, spAge: 45, minComp: 80000, housingDesignated: 20000, housingActual: 20000, housingFRV: 20000,
+      minPreTax: 0, minRoth403b: 0, minRothIRA: 0, spGross: 0, spPreTax: 0, spRoth401k: 0, spRothIRA: 0 };
+    const t0 = computeToday(base), t1 = computeToday(Object.assign({}, base, { cashContrib: 1200, brokContrib: 2400 }));
+    add('Cash + brokerage saving lowers take-home 1:1', t0.householdNet - t1.householdNet, 3600);
+    const t2 = computeToday(Object.assign({}, base, { whMinFed: 500, estQuarterly: 0 }));
+    add('Set-aside gap = tax due − 12 × withholding', t2.setAside.gap, t2.setAside.due - 6000); }
   // Engine: zero-return, no-tax sanity — Roth only, spend exactly drains balance
   const P0 = { years: 10, status: 'MFJ', startCalYear: 2046, scale0: 1, inflation: 0, ret: 0,
     spend0: 10000, ssMin0: 0, ssSp0: 0, pension0: 0, pensionCOLA: false, housing0: 0, housingOn: false,

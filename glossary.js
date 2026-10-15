@@ -26,6 +26,19 @@ const TERMS = {
   retincome: { term: 'Retirement income from savings', group: 'Big ideas',
     short: "How much your retirement accounts could pay you each month for your whole retirement, in today's dollars, before taxes. Social Security and pensions are extra.",
     more: "The app spreads your projected savings evenly over your retirement years, assuming your retirement return minus inflation. It's a planning yardstick, not a guarantee." },
+  budget: { term: 'Budget (rough reference)', group: 'Big ideas',
+    short: 'A monthly picture of where money goes: housing, giving, food and the rest. Here it is a rough reference, not a precise tracker.',
+    more: "Round numbers and typical months are fine. The housing lines can feed your housing allowance calculation, and the total shows whether this month's plan leaves a surplus or a shortfall.",
+    reflect: 'Knowing where money goes is the first step to directing it toward what you are called to.' },
+  emergency: { term: 'Emergency fund', group: 'Big ideas',
+    short: 'Cash set aside for surprises like a car repair, a job change or a medical bill. Three to six months of spending is a common goal.',
+    more: 'It keeps a hard month from turning into debt or an early withdrawal from retirement savings. Keep it in a savings account, not invested in stocks.',
+    read: [{ label: 'Consumer Financial Protection Bureau: emergency savings', url: 'https://www.consumerfinance.gov/an-essential-guide-to-building-an-emergency-fund/' }] },
+  setaside: { term: 'Setting aside tax (withholding and quarterly payments)', group: 'Minister taxes',
+    short: "Churches don't withhold Social Security or Medicare from a minister's pay, and often withhold no income tax at all. You must set money aside yourself, or face a large bill and possibly a penalty in April.",
+    more: 'Two ways: ask the church to withhold extra federal income tax from each paycheck (a voluntary agreement, using Form W-4), or send quarterly estimated payments with Form 1040-ES. Withheld tax can cover self-employment tax too.',
+    read: [PUB517, { label: 'IRS: Estimated taxes', url: 'https://www.irs.gov/businesses/small-businesses-self-employed/estimated-taxes' }],
+    watch: [yt('pastor quarterly estimated taxes explained')] },
   housing: { term: 'Housing allowance', group: 'Minister taxes',
     short: "The part of a minister's pay the church designates in advance for housing. It's left out of federal income tax, but it still counts for self-employment tax.",
     more: 'The tax-free amount is the smallest of three numbers: what the church designated, what you actually spent on housing, and the fair rental value of your home (furnished, plus utilities). Anything designated above that is taxable income. The designation must be made before the pay is received, usually in board or council minutes. (IRC §107)',
@@ -135,7 +148,7 @@ const FIELD_TERMS = {
   minPreTax: 'pretax', minRoth403b: 'roth', minRothIRA: 'rothira', spPreTax: 'pretax', spRoth401k: 'roth', spRothIRA: 'rothira',
   accReturn: 'compound', salaryGrowth: 'compound', minTradBal: 'pretax', churchPlanPct: 'churchplan', minRothBal: 'roth', brokerageBal: 'brokerage',
   todaysDollars: 'todaysdollars', retHousing: 'churchplan', ssMin: 'socialsecurity', ssSp: 'socialsecurity', retVol: 'volatility',
-  inflation: 'todaysdollars', dist: 'montecarlo', drawOrder: 'draworder', convOn: 'conversion', survivorOn: 'survivor', seniorExtended: 'stddeduction'
+  inflation: 'todaysdollars', dist: 'montecarlo', cashBal: 'emergency', cashContrib: 'emergency', brokContrib: 'brokerage', whMinFed: 'setaside', estQuarterly: 'setaside', whSpFed: 'setaside', linkHousing: 'actual', drawOrder: 'draworder', convOn: 'conversion', survivorOn: 'survivor', seniorExtended: 'stddeduction'
 };
 
 const askPrompt = t => `Explain "${t.term}" to me in plain language, as if I'm a pastor who has never studied finance. Use one simple example with round numbers. Then tell me how it might apply to a minister's family, and one question I should ask my church benefits provider or tax professional. Keep it under 250 words.`;

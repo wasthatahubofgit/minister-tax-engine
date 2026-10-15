@@ -13,10 +13,12 @@ const RANGES = {
   spRothBal: R(0, 1000000, 1000), miscTradBal: R(0, 1000000, 1000), miscRothBal: R(0, 1000000, 1000), brokerageBal: R(0, 1000000, 1000),
   retSpend: R(0, 300000, 1000), retHousing: R(0, 100000, 500), ssMin: R(0, 60000, 500), ssSp: R(0, 60000, 500), pension: R(0, 100000, 500),
   retYears: R(5, 45, 1), retReturn: R(0, 10, 0.1), retVol: R(0, 25, 0.5), inflation: R(0, 6, 0.1), brokTaxDrag: R(0, 40, 1),
-  survivorYear: R(1, 40, 1), survivorSpendPct: R(40, 100, 5)
+  survivorYear: R(1, 40, 1), survivorSpendPct: R(40, 100, 5),
+  cashBal: R(0, 200000, 500), cashContrib: R(0, 30000, 100), cashRate: R(0, 6, 0.1), brokContrib: R(0, 60000, 100),
+  whMinFed: R(0, 3000, 25), whMinState: R(0, 1000, 25), whSpFed: R(0, 3000, 25), whSpState: R(0, 1000, 25), estQuarterly: R(0, 10000, 50), lastYearTax: R(0, 80000, 100)
 };
 // Annual dollar fields that also show a per-month equivalent
-const PER_MONTH = ['minComp', 'spGross', 'minPreTax', 'minRoth403b', 'minRothIRA', 'spPreTax', 'spRoth401k', 'spRothIRA', 'retSpend', 'retHousing', 'ssMin', 'ssSp', 'pension', 'housingDesignated', 'housingActual'];
+const PER_MONTH = ['minComp', 'spGross', 'minPreTax', 'minRoth403b', 'minRothIRA', 'spPreTax', 'spRoth401k', 'spRothIRA', 'retSpend', 'retHousing', 'ssMin', 'ssSp', 'pension', 'housingDesignated', 'housingActual', 'cashContrib', 'brokContrib'];
 const sliders = {};
 
 function fill(sl){ const p = (sl.value - sl.min) / (sl.max - sl.min) * 100; sl.style.setProperty('--p', (isFinite(p) ? p : 0) + '%'); }
@@ -44,7 +46,7 @@ function sync(id){
   const sl = sliders[id], num = $(id); if (!sl) return;
   const v = parseFloat(num.value) || 0;
   if (v > +sl.max) sl.max = Math.ceil(v / +sl.step) * +sl.step;
-  sl.value = v; fill(sl); perMonth(id);
+  sl.value = v; fill(sl); perMonth(id); sl.disabled = !!num.readOnly;
 }
 function syncAll(){ Object.keys(sliders).forEach(sync); }
 A.onRender(() => { if (!document.activeElement || document.activeElement.type !== 'range') syncAll(); });

@@ -18,7 +18,7 @@
   --accent:#4338ca; --accent-ink:#ffffff; --accent-soft:#e7e6fa;
   --good:#0d7a53; --good-soft:#e1f3eb; --bad:#b3203a; --bad-soft:#fae6ea; --warn:#9a5806; --warn-soft:#fbf0dd;
   --c-church:#4338ca; --c-trad:#d08a1f; --c-spouse:#b45a1b; --c-roth:#0e8a62; --c-brok:#6b7389;
-  --c-fixed:#7c83a0; --c-rmd:#c2334c; --c-conv:#7b6cf0; --c-draw:#d08a1f;
+  --c-fixed:#7c83a0; --c-rmd:#c2334c; --c-conv:#7b6cf0; --c-draw:#d08a1f; --c-house:#2f7fb8;
   --f-display:"Source Serif 4", Georgia, "Times New Roman", serif;
   --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -29,13 +29,13 @@
   --accent:#8f88ff; --accent-ink:#10111a; --accent-soft:#272550;
   --good:#3fcf96; --good-soft:#123227; --bad:#ff6e86; --bad-soft:#3a1720; --warn:#f2aa47; --warn-soft:#352610;
   --c-church:#8f88ff; --c-trad:#f0b54d; --c-spouse:#e2864a; --c-roth:#3fcf96; --c-brok:#9aa2bb;
-  --c-fixed:#9aa2bb; --c-rmd:#ff6e86; --c-conv:#b4a9ff; --c-draw:#f0b54d; color-scheme:dark }}
+  --c-fixed:#9aa2bb; --c-rmd:#ff6e86; --c-conv:#b4a9ff; --c-draw:#f0b54d; --c-house:#6cb4ea; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#10111a; --surface:#181a26; --surface-2:#212435; --ink:#e7e8f2; --muted:#9a9db4; --line:#2d3046;
   --accent:#8f88ff; --accent-ink:#10111a; --accent-soft:#272550;
   --good:#3fcf96; --good-soft:#123227; --bad:#ff6e86; --bad-soft:#3a1720; --warn:#f2aa47; --warn-soft:#352610;
   --c-church:#8f88ff; --c-trad:#f0b54d; --c-spouse:#e2864a; --c-roth:#3fcf96; --c-brok:#9aa2bb;
-  --c-fixed:#9aa2bb; --c-rmd:#ff6e86; --c-conv:#b4a9ff; --c-draw:#f0b54d; color-scheme:dark }
+  --c-fixed:#9aa2bb; --c-rmd:#ff6e86; --c-conv:#b4a9ff; --c-draw:#f0b54d; --c-house:#6cb4ea; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{margin:0}
@@ -233,6 +233,62 @@ body.wz-open{overflow:hidden}
   .wz-card h2{font-size:1.3rem}
 }
 
+
+/* ---------- V16: home, budget, plan, simple mode ---------- */
+body.simple .adv{display:none!important}
+.home-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.home-head h2{font-size:1.35rem}
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px;align-items:start}
+.home-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px;min-width:0}
+.home-card.wide{grid-column:1 / -1}
+.home-card h3{font-family:var(--f-display);font-size:1.08rem;font-weight:600}
+.hc-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.hc-tools{display:flex;gap:4px}
+.hc-tools button{font:inherit;font-size:.78rem;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:6px;padding:3px 8px;cursor:pointer}
+.home-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px;border:1px dashed var(--line);border-radius:var(--r)}
+.big{font-family:var(--f-mono);font-size:1.6rem;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mini-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.mini-kpis div{background:var(--surface-2);border-radius:8px;padding:8px 10px;display:grid;gap:2px}
+.mini-kpis b{font-family:var(--f-mono);font-weight:500;font-size:1.05rem}
+.stackbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--surface-2)}
+.stackbar i{display:block;height:100%}
+.legend2{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.76rem;color:var(--muted)}
+.legend2 span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;background:var(--c)}
+.status-pill{display:inline-block;font-size:.75rem;font-weight:600;padding:2px 8px;border-radius:99px}
+.status-pill.good{background:var(--good-soft);color:var(--good)} .status-pill.bad{background:var(--bad-soft);color:var(--bad)} .status-pill.warn{background:var(--warn-soft);color:var(--warn)}
+.budget-cols{display:grid;gap:16px}
+@media(min-width:900px){.budget-cols{grid-template-columns:1fr 1fr;align-items:start}}
+.budget-lines{display:grid;gap:2px}
+.bl{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:4px 10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.bl label{font-size:.88rem}
+.bl label small{display:block;color:var(--muted);font-size:.74rem}
+.bl input[type=number]{width:100%;font:inherit;font-family:var(--f-mono);font-size:.9rem;padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);text-align:right}
+.bl.group{border-bottom:0;padding-top:12px} .bl.group label{font-weight:600}
+.bl.child{padding-left:14px}
+.budget-sum{display:grid;gap:10px}
+.plan{display:grid;gap:12px}
+.plan-bar{display:flex;height:22px;border-radius:8px;overflow:hidden;background:var(--surface-2)}
+.plan-bar i{display:block;height:100%;transition:width .15s}
+.plan-row{display:grid;grid-template-columns:28px minmax(0,1fr) 96px;gap:4px 8px;align-items:center}
+.plan-row .pr-name{font-size:.86rem;display:flex;align-items:center;gap:6px;min-width:0}
+.plan-row .pr-name i{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+.plan-row input[type=number]{width:100%;font:inherit;font-family:var(--f-mono);font-size:.86rem;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);text-align:right}
+.plan-row input[type=range]{grid-column:2 / -1}
+.lock{font:inherit;width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:var(--surface);cursor:pointer;display:grid;place-items:center;padding:0;color:var(--muted)}
+.lock[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.lock svg{width:14px;height:14px}
+.plan-row.locked input[type=range]{opacity:.45}
+.plan-note{font-size:.82rem;color:var(--muted);margin:0}
+.plan-note:empty{display:none}
+.plan-left{display:flex;justify-content:space-between;align-items:center;font-size:.9rem;padding:8px 10px;border-radius:8px;background:var(--surface-2)}
+.plan-left.bad{background:var(--bad-soft);color:var(--bad)}
+.setaside{display:grid;gap:8px}
+.duedates{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+.duedates div{background:var(--surface-2);border-radius:8px;padding:6px 8px;font-size:.8rem;display:grid}
+.duedates div.past{opacity:.5}
+.unsure{display:grid;gap:8px;background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:.88rem}
+.unsure p{margin:0}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -242,7 +298,7 @@ body.wz-open{overflow:hidden}
 <div class="bar" role="region" aria-label="Summary">
   <div class="bar-in">
     <h1>Minister Tax &amp; Wealth Engine <span class="muted small num">TY2026</span></h1>
-    <div class="bar-actions"><button class="btn" id="btnGuide" type="button">Guided setup</button><button class="btn" id="btnAccount" type="button">Sign in</button></div>
+    <div class="bar-actions"><div class="seg" role="group" aria-label="How much detail to show"><button type="button" id="viewSimple" aria-pressed="true">Simple</button><button type="button" id="viewDetailed" aria-pressed="false">Detailed</button></div><button class="btn" id="btnGuide" type="button">Guided setup</button><button class="btn" id="btnAccount" type="button">Sign in</button></div>
     <div class="chips" id="chips" aria-label="Figures you are watching"></div>
   </div>
   <div class="impact" id="impact" hidden aria-live="polite"></div>
@@ -250,19 +306,49 @@ body.wz-open{overflow:hidden}
 
 <div class="wrap">
   <nav class="tabs" role="tablist" aria-label="Sections">
-    <button class="tab" role="tab" data-tab="today" aria-selected="true">Today</button>
-    <button class="tab" role="tab" data-tab="grow" aria-selected="false">Accumulation</button>
+    <button class="tab" role="tab" data-tab="home" aria-selected="true">Home</button>
+    <button class="tab" role="tab" data-tab="budget" aria-selected="false">Budget</button>
+    <button class="tab" role="tab" data-tab="pay" aria-selected="false">Paycheck &amp; taxes</button>
+    <button class="tab" role="tab" data-tab="grow" aria-selected="false">Saving</button>
     <button class="tab" role="tab" data-tab="retire" aria-selected="false">Retirement</button>
-    <button class="tab" role="tab" data-tab="years" aria-selected="false">Year by year</button>
+    <button class="tab adv" role="tab" data-tab="years" aria-selected="false">Year by year</button>
     <button class="tab" role="tab" data-tab="scen" aria-selected="false">Scenarios</button>
     <button class="tab" role="tab" data-tab="audit" aria-selected="false">AI coach</button>
     <button class="tab" role="tab" data-tab="learn" aria-selected="false">Learn</button>
     <button class="tab" role="tab" data-tab="account" aria-selected="false">My account</button>
-    <button class="tab" role="tab" data-tab="rules" aria-selected="false">Assumptions &amp; tax law</button>
+    <button class="tab adv" role="tab" data-tab="rules" aria-selected="false">Settings</button>
   </nav>
 
-  <!-- ===================== TODAY ===================== -->
-  <section class="panel split" data-panel="today">
+  <!-- ===================== HOME ===================== -->
+  <section class="panel" data-panel="home">
+    <div class="home-head"><div><h2>Your household at a glance</h2><p class="note" style="margin:2px 0 0">Choose the cards you want here. Everything updates as you change numbers anywhere in the app.</p></div>
+      <div class="row"><button class="btn" type="button" id="btnHomeEdit" aria-pressed="false">Customize</button></div></div>
+    <div class="home-add" id="homeAdd" hidden></div>
+    <div class="home-grid" id="homeGrid"></div>
+  </section>
+
+  <!-- ===================== BUDGET ===================== -->
+  <section class="panel" data-panel="budget" hidden>
+    <div class="card">
+      <div class="card-h"><h2>Monthly budget</h2>
+        <div class="seg" role="group" aria-label="Budget detail"><button type="button" data-bmode="simple">Simple</button><button type="button" data-bmode="standard">Standard</button><button type="button" data-bmode="detailed">Detailed</button></div></div>
+      <p class="note">Use this as a rough reference, not a precise budgeting tool. Round numbers and typical months are fine; the point is to see how spending, giving, saving and taxes fit together. If you track spending elsewhere, copy in rough monthly averages.</p>
+      <div class="budget-sum" id="budgetSum"></div>
+    </div>
+    <div class="budget-cols">
+      <div class="card"><div class="card-h"><h3>Housing <button type="button" class="term-q" data-term="housing" aria-label="What is the housing allowance?">?</button></h3><span class="muted small" id="bHousingTotal"></span></div>
+        <p class="small muted" style="margin-top:0">These are the costs the housing allowance can cover.</p>
+        <div id="bHousing" class="budget-lines"></div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" id="linkHousing"><span>Use this housing total as my actual housing expenses for the tax calculation</span></label>
+      </div>
+      <div class="card"><div class="card-h"><h3>Everything else</h3><span class="muted small" id="bOtherTotal"></span></div>
+        <div id="bOther" class="budget-lines"></div></div>
+    </div>
+  </section>
+
+
+  <!-- ===================== PAYCHECK & TAXES ===================== -->
+  <section class="panel split" data-panel="pay" hidden>
     <div class="card">
       <fieldset>
         <div class="group-title"><h3>Household</h3>
@@ -298,11 +384,26 @@ body.wz-open{overflow:hidden}
     <div class="stack">
       <div class="kpis" id="todayKpis"></div>
       <div class="card">
+        <div class="card-h"><h2>Tax set-aside check</h2><button type="button" class="term-q" data-term="setaside" aria-label="Why ministers must set aside tax">?</button></div>
+        <p class="note" style="margin-top:0">Churches don't withhold Social Security or Medicare from a minister's pay, so you have to set money aside for it yourself. Enter what's set aside now to see whether it covers this year's taxes.</p>
+        <div class="scen">
+          <fieldset>
+            <div class="field"><label for="whMinFed">Federal tax withheld from church pay<small>Per month, from your pay stub</small></label><input type="number" id="whMinFed" step="25"></div>
+            <div class="field"><label for="whMinState">State tax withheld from church pay<small>Per month</small></label><input type="number" id="whMinState" step="25"></div>
+            <div class="field spouse-only"><label for="whSpFed">Federal tax withheld from spouse's pay<small>Per month</small></label><input type="number" id="whSpFed" step="25"></div>
+            <div class="field spouse-only"><label for="whSpState">State tax withheld from spouse's pay<small>Per month</small></label><input type="number" id="whSpState" step="25"></div>
+            <div class="field"><label for="estQuarterly">Quarterly estimated payment<small>Each quarter, Form 1040-ES</small></label><input type="number" id="estQuarterly" step="100"></div>
+            <div class="field adv"><label for="lastYearTax">Last year's total tax<small>Optional, for the penalty safe harbor</small></label><input type="number" id="lastYearTax" step="100"></div>
+          </fieldset>
+          <div id="setAsideOut"></div>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-h"><h2>Dual-status math</h2><span class="muted small">vs. the same pay as a W-2 employee</span></div>
         <table class="ledger" id="dualTable"></table>
         <p class="note" id="breakEvenNote"></p>
       </div>
-      <div class="card">
+      <div class="card adv">
         <div class="card-h"><h2>SECA detail</h2><span class="cite">§1401 · §164(f)</span></div>
         <table class="ledger" id="secaTable"></table>
       </div>
@@ -319,8 +420,8 @@ body.wz-open{overflow:hidden}
       <fieldset>
         <div class="group-title"><h3>Growth</h3></div>
         <div class="field"><label for="yearsToRetire">Years to retirement</label><input type="number" id="yearsToRetire" step="1"></div>
-        <div class="field"><label for="accReturn">Return before retirement (%)</label><input type="number" id="accReturn" step="0.1"></div>
-        <div class="field"><label for="salaryGrowth">Contribution growth (%/yr)<small>Raises flow into deferrals</small></label><input type="number" id="salaryGrowth" step="0.1"></div>
+        <div class="field adv"><label for="accReturn">Return before retirement (%)</label><input type="number" id="accReturn" step="0.1"></div>
+        <div class="field adv"><label for="salaryGrowth">Contribution growth (%/yr)<small>Raises flow into deferrals</small></label><input type="number" id="salaryGrowth" step="0.1"></div>
         <div class="group-title"><h3>Current balances</h3></div>
         <div class="field"><label for="minTradBal">Minister 403(b) traditional</label><input type="number" id="minTradBal" step="1000"></div>
         <div class="field"><label for="churchPlanPct">…share in a church plan (%)<small>Eligible for the retirement housing exclusion</small></label><input type="number" id="churchPlanPct" step="5"></div>
@@ -328,8 +429,13 @@ body.wz-open{overflow:hidden}
         <div class="field spouse-only"><label for="spTradBal">Spouse traditional</label><input type="number" id="spTradBal" step="1000"></div>
         <div class="field spouse-only"><label for="spRothBal">Spouse Roth</label><input type="number" id="spRothBal" step="1000"></div>
         <div class="field"><label for="miscTradBal">Other traditional IRAs<small>Treated as the minister's</small></label><input type="number" id="miscTradBal" step="1000"></div>
-        <div class="field"><label for="miscRothBal">Other Roth IRAs</label><input type="number" id="miscRothBal" step="1000"></div>
+        <div class="field adv"><label for="miscRothBal">Other Roth IRAs</label><input type="number" id="miscRothBal" step="1000"></div>
+        <div class="group-title"><h3>Cash and investing</h3></div>
+        <div class="field"><label for="cashBal">Cash savings<small>Emergency fund and savings accounts</small></label><input type="number" id="cashBal" step="500"></div>
+        <div class="field"><label for="cashContrib">Added to cash savings (per year)</label><input type="number" id="cashContrib" step="100"></div>
+        <div class="field adv"><label for="cashRate">Interest on cash (%)</label><input type="number" id="cashRate" step="0.1"></div>
         <div class="field"><label for="brokerageBal">Taxable brokerage</label><input type="number" id="brokerageBal" step="1000"></div>
+        <div class="field"><label for="brokContrib">Added to brokerage (per year)</label><input type="number" id="brokContrib" step="100"></div>
       </fieldset>
     </div>
     <div class="stack">
@@ -354,22 +460,22 @@ body.wz-open{overflow:hidden}
         <div class="field"><label for="ssMin">Minister Social Security<small>0 if exempt via Form 4361</small></label><input type="number" id="ssMin" step="500"></div>
         <div class="field spouse-only"><label for="ssSp">Spouse Social Security</label><input type="number" id="ssSp" step="500"></div>
         <div class="field"><label for="pension">Pension / other income</label><input type="number" id="pension" step="500"></div>
-        <label class="check"><input type="checkbox" id="pensionCOLA"><span>Pension has a cost-of-living raise</span></label>
+        <label class="check adv"><input type="checkbox" id="pensionCOLA"><span>Pension has a cost-of-living raise</span></label>
         <div class="group-title"><h3>Market</h3></div>
         <div class="field"><label for="retYears">Years in retirement</label><input type="number" id="retYears" step="1"></div>
         <div class="field"><label for="retReturn">Mean return (%)</label><input type="number" id="retReturn" step="0.1"></div>
-        <div class="field"><label for="retVol">Volatility (%)</label><input type="number" id="retVol" step="0.5"></div>
+        <div class="field adv"><label for="retVol">Volatility (%)</label><input type="number" id="retVol" step="0.5"></div>
         <div class="field"><label for="inflation">Inflation (%)</label><input type="number" id="inflation" step="0.1"></div>
-        <div class="field"><label for="dist">Return distribution</label><select id="dist"><option value="normal">Normal</option><option value="t5">Fat-tailed (t, 5 df)</option></select></div>
-        <div class="field"><label for="brokTaxDrag">Brokerage tax drag (% of gains)</label><input type="number" id="brokTaxDrag" step="1"></div>
-        <div class="group-title"><h3>Strategy</h3></div>
-        <div class="field"><label for="drawOrder">After housing draws, spend</label><select id="drawOrder"><option value="roth-first">Roth first (V13 order)</option><option value="trad-first">Traditional first</option></select></div>
-        <label class="check"><input type="checkbox" id="convOn"><span>Roth conversions until RMD age<br><small class="muted">Converts non-church Traditional money</small></span></label>
-        <div class="field"><label for="convBracket">Fill up to bracket</label><select id="convBracket"><option value="0.12">12%</option><option value="0.22">22%</option><option value="0.24">24%</option></select></div>
-        <label class="check spouse-only"><input type="checkbox" id="survivorOn"><span>Survivor scenario<br><small class="muted">Housing exclusion ends; filing status becomes Single</small></span></label>
-        <div class="field spouse-only"><label for="survivorYear">Minister passes in retirement year</label><input type="number" id="survivorYear" step="1"></div>
-        <div class="field spouse-only"><label for="survivorSpendPct">Survivor spending (% of couple)</label><input type="number" id="survivorSpendPct" step="5"></div>
-        <label class="check"><input type="checkbox" id="seniorExtended"><span>Assume the $6,000 senior deduction is extended past 2028</span></label>
+        <div class="field adv"><label for="dist">Return distribution</label><select id="dist"><option value="normal">Normal</option><option value="t5">Fat-tailed (t, 5 df)</option></select></div>
+        <div class="field adv"><label for="brokTaxDrag">Brokerage tax drag (% of gains)</label><input type="number" id="brokTaxDrag" step="1"></div>
+        <div class="group-title adv"><h3>Strategy</h3></div>
+        <div class="field adv"><label for="drawOrder">After housing draws, spend</label><select id="drawOrder"><option value="roth-first">Roth first (V13 order)</option><option value="trad-first">Traditional first</option></select></div>
+        <label class="check adv"><input type="checkbox" id="convOn"><span>Roth conversions until RMD age<br><small class="muted">Converts non-church Traditional money</small></span></label>
+        <div class="field adv"><label for="convBracket">Fill up to bracket</label><select id="convBracket"><option value="0.12">12%</option><option value="0.22">22%</option><option value="0.24">24%</option></select></div>
+        <label class="check adv spouse-only"><input type="checkbox" id="survivorOn"><span>Survivor scenario<br><small class="muted">Housing exclusion ends; filing status becomes Single</small></span></label>
+        <div class="field adv spouse-only"><label for="survivorYear">Minister passes in retirement year</label><input type="number" id="survivorYear" step="1"></div>
+        <div class="field adv spouse-only"><label for="survivorSpendPct">Survivor spending (% of couple)</label><input type="number" id="survivorSpendPct" step="5"></div>
+        <label class="check adv"><input type="checkbox" id="seniorExtended"><span>Assume the $6,000 senior deduction is extended past 2028</span></label>
       </fieldset>
     </div>
     <div class="stack">
@@ -522,10 +628,13 @@ body.wz-open{overflow:hidden}
 <script src="engine.js"></script>
 <script src="app.js"></script>
 <script src="account.js"></script>
+<script src="budget.js"></script>
 <script src="impact.js"></script>
 <script src="glossary.js"></script>
 <script src="sliders.js"></script>
 <script src="ai.js"></script>
+<script src="plan.js"></script>
+<script src="home.js"></script>
 <script src="guide.js"></script>
 </body>
 </html>

@@ -12,12 +12,23 @@ const money = v => fmt(v);
 function wf(key, label, opts){
   const o = Object.assign({ min: 0, max: 100000, step: 100, unit: '$', per: '' }, opts || {});
   const v = o.get ? o.get() : draft[key];
+  const u = o.unsure; if (u) UNSURE[key] = { u, label };
   return `<div class="wz-field">
     <label for="wz-${key}">${label}${o.help ? `<small>${o.help}</small>` : ''}</label>
     <div class="wz-in"><span class="wz-unit">${o.unit === '$' ? '$' : ''}</span><input type="number" id="wz-${key}" data-k="${key}" value="${v}" min="${o.min}" step="${o.step}" inputmode="decimal"><span class="wz-unit">${o.per}${o.unit === '%' ? '%' : ''}</span></div>
     <input type="range" id="wz-sl-${key}" data-k="${key}" min="${o.min}" max="${Math.max(o.max, v)}" step="${o.step}" value="${v}" aria-label="${esc(label.replace(/<[^>]+>/g, ''))} slider">
+    ${u ? `<div><button type="button" class="linkish small" data-unsure="${key}" aria-expanded="false">Not sure?</button></div>
+    <div class="unsure" id="un-${key}" hidden><p><strong>Where to find it:</strong> ${u.where}</p>
+      <div class="row">${u.typical !== undefined ? `<button type="button" class="btn" data-typical="${key}">Use ${esc(u.typicalLabel || 'a typical value')}</button>` : ''}
+      <button type="button" class="btn" data-unsure-ask="${key}">Copy a question for any AI</button></div></div>` : ''}
   </div>`;
 }
+const UNSURE = {};
+const SAVE_HELP = { where: 'On your pay stub, look for deductions named "403(b)," "TSA," "GuideStone," "401(k)," "457" or "Roth." Add up a month of paychecks. Your plan\'s website also lists contributions.', typical: 0, typicalLabel: '0 for now' };
+const IRA_HELP = { where: 'Roth IRAs are opened on your own at a bank or brokerage, not through the church. Check that account for automatic monthly deposits.', typical: 0, typicalLabel: '0 for now' };
+const BAL_HELP = { where: 'Your latest statement from your plan (GuideStone, Fidelity, Vanguard, TIAA and so on) or its website. Use the total value.', typical: 0, typicalLabel: '0 for now' };
+const sumKeys = (b, pre) => Object.entries(b || {}).filter(([k]) => k.startsWith(pre)).reduce((a, [, v]) => a + (+v || 0), 0);
+const restOf = b => Object.entries(b || {}).filter(([k]) => !k.startsWith('h_') && !k.startsWith('g_')).reduce((a, [, v]) => a + (+v || 0), 0);
 const num = k => parseFloat(($('wz-' + k) || {}).value) || 0;
 
 /* ---------- little live example for the welcome story ---------- */
@@ -93,36 +104,75 @@ const STEPS = [
     },
     save: () => { draft.state = $('wzState').value; if ($('wz-stateRate')) { draft.stateRate = num('stateRate'); draft.stateTaxesSS = $('wzSS').checked; } } },
   { id: 'pay', title: 'Your church pay', body: () => `
-      ${wf('minComp', `Total yearly pay from the church, <em>including</em> any ${T('housing', 'housing allowance')}`, { max: 250000, step: 500, per: '/yr', help: 'Your full salary package before taxes. Leave out health insurance and retirement contributions the church makes for you.' })}
-      ${wf('housingDesignated', 'How much of that the church designates as housing allowance', { max: 120000, step: 500, per: '/yr', help: "Usually written in the church's minutes or your pay letter. Enter 0 if you don't have one." })}` ,
+      ${wf('minComp', `Total yearly pay from the church, <em>including</em> any ${T('housing', 'housing allowance')}`, { max: 250000, step: 500, per: '/yr', help: 'Your full salary package before taxes. Leave out health insurance and retirement contributions the church makes for you.',
+        unsure: { where: "Your pay letter or the church's yearly compensation resolution. Or take one pay stub's gross pay (before any deductions) and multiply by the number of paychecks in a year.", typical: 60000, typicalLabel: 'a typical pastor salary' } })}
+      ${wf('housingDesignated', 'How much of that the church designates as housing allowance', { max: 120000, step: 500, per: '/yr', help: "Enter 0 if you don't have one.",
+        unsure: { where: "It's usually in the church board or council minutes, or your pay letter, called a \"housing allowance\" or \"parsonage allowance.\" If it isn't written down anywhere, ask your treasurer: it must be designated in advance to count.", typical: () => Math.round(num('minComp') * 0.35 / 500) * 500, typicalLabel: 'about a third of pay' } })}`,
     save: () => { draft.minComp = num('minComp'); draft.housingDesignated = num('housingDesignated'); } },
   { id: 'housing', title: 'What your housing really costs', body: () => `
       <p class="small">Only the smallest of three numbers is tax-free: the designated allowance, your ${T('actual', 'actual housing costs')}, and your home's ${T('frv', 'fair rental value')}.</p>
-      ${wf('housingActual', 'Actual housing costs per year', { max: 120000, step: 500, per: '/yr', help: 'Rent or mortgage, utilities, insurance, property tax, furniture, repairs.' })}
-      ${wf('housingFRV', 'Fair rental value per year (furnished, plus utilities)', { max: 120000, step: 500, per: '/yr', help: 'What a similar furnished home would rent for, plus utilities.' })}
-      <button class="linkish" type="button" id="wzSameHousing">Not sure? Use my allowance for both</button>`,
-    after: () => { $('wzSameHousing').onclick = () => { ['housingActual', 'housingFRV'].forEach(k => { $('wz-' + k).value = draft.housingDesignated; $('wz-sl-' + k).value = draft.housingDesignated; }); }; },
+      ${wf('housingActual', 'Actual housing costs per year', { max: 120000, step: 500, per: '/yr', help: 'Rent or mortgage, utilities, insurance, property tax, furniture, repairs.',
+        unsure: { where: 'Add up a typical month from your bank statements (rent or mortgage, utilities, insurance, property tax, furniture and repairs) and multiply by 12. You can refine it later on the Budget page.', typical: () => draft.housingDesignated, typicalLabel: 'same as your allowance' } })}
+      ${wf('housingFRV', 'Fair rental value per year (furnished, plus utilities)', { max: 120000, step: 500, per: '/yr', help: 'What a similar furnished home would rent for, plus utilities.',
+        unsure: { where: 'Look up rental listings for similar homes nearby (Zillow or a local realtor), add a little for furnishings, then add a year of utilities. Keep a note of how you got the number.', typical: () => num('housingActual') || draft.housingDesignated, typicalLabel: 'same as your actual costs' } })}`,
     save: () => { draft.housingActual = num('housingActual'); draft.housingFRV = num('housingFRV'); } },
   { id: 'spouse', title: "Your spouse's work", when: () => draft.__status === 'MFJ', body: () => `
-      ${wf('spGross', "Your spouse's yearly pay from a regular job", { max: 250000, step: 500, per: '/yr', help: 'Before taxes. Enter 0 if your spouse does not work outside the home.' })}`,
+      ${wf('spGross', "Your spouse's yearly pay from a regular job", { max: 250000, step: 500, per: '/yr', help: 'Before taxes. Enter 0 if your spouse does not work outside the home.',
+        unsure: { where: "A recent pay stub shows gross pay for the period; multiply by the number of paychecks a year. Or use the yearly salary from an offer letter. Last year's W-2 box 1 is lower if they save pre-tax.", typical: 0, typicalLabel: '0 for now' } })}`,
     save: () => { draft.spGross = num('spGross'); } },
+  { id: 'taxes', title: 'Tax you set aside', body: () => {
+      const st = draft.state !== 'MA' && E.NO_WAGE_TAX.includes(draft.state);
+      return `<p class="small">Churches don't withhold Social Security or Medicare from a minister's pay, and many withhold no income tax at all. ${T('setaside', 'Why this matters')}</p>
+      ${wf('whMinFed', 'Federal tax withheld from your church pay', { max: 3000, step: 25, per: '/mo',
+        unsure: { where: 'On your pay stub, look for "Federal income tax," "Fed WH" or "FIT." Multiply one paycheck\'s amount by paychecks per year, then divide by 12. If there is no such line, enter 0.', typical: 0, typicalLabel: '0 (nothing withheld)' } })}
+      ${st ? '' : wf('whMinState', 'State tax withheld from your church pay', { max: 1000, step: 25, per: '/mo', unsure: { where: 'Look for "State income tax" or "SIT" on your pay stub.', typical: 0, typicalLabel: '0' } })}
+      ${draft.__status === 'MFJ' ? wf('whSpFed', "Federal tax withheld from your spouse's pay", { max: 3000, step: 25, per: '/mo', unsure: { where: 'Same line on your spouse\'s pay stub: "Federal income tax" or "FIT."', typical: () => Math.round(draft.spGross * 0.08 / 12 / 25) * 25, typicalLabel: 'about 8% of their pay' } }) : ''}
+      ${draft.__status === 'MFJ' && !st ? wf('whSpState', "State tax withheld from your spouse's pay", { max: 1000, step: 25, per: '/mo', unsure: { where: '"State income tax" on their pay stub.', typical: () => Math.round(draft.spGross * 0.04 / 12 / 25) * 25, typicalLabel: 'about 4% of their pay' } }) : ''}
+      ${wf('estQuarterly', 'Quarterly estimated payment you send the IRS', { max: 10000, step: 50, per: '/qtr', help: '0 if you don\'t make them.',
+        unsure: { where: 'These are payments sent with Form 1040-ES or through IRS Direct Pay, usually in April, June, September and January. Check your bank or IRS online account.', typical: 0, typicalLabel: '0' } })}`; },
+    save: () => { ['whMinFed', 'whMinState', 'whSpFed', 'whSpState', 'estQuarterly'].forEach(k => { if ($('wz-' + k)) draft[k] = num(k); }); } },
   { id: 'saving', title: 'What you save each month', body: () => `
       <p class="small">Check a recent pay stub. If you aren't saving yet, leave these at 0. The dashboard will show what small amounts can do.</p>
-      ${wf('m_minPreTax', `Your ${T('b403', '403(b)')}, ${T('pretax', 'pre-tax')}`, { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.minPreTax / 12) })}
-      ${wf('m_minRoth403b', `Your 403(b), ${T('roth', 'Roth')}`, { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.minRoth403b / 12) })}
-      ${wf('m_minRothIRA', `Your ${T('rothira', 'Roth IRA')}`, { max: 700, step: 10, per: '/mo', get: () => Math.round(draft.minRothIRA / 12) })}
-      ${draft.__status === 'MFJ' ? wf('m_spPreTax', "Spouse's workplace plan, pre-tax", { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.spPreTax / 12) }) +
-        wf('m_spRoth401k', "Spouse's workplace plan, Roth", { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.spRoth401k / 12) }) : ''}`,
-    save: () => { ['minPreTax', 'minRoth403b', 'minRothIRA'].concat(draft.__status === 'MFJ' ? ['spPreTax', 'spRoth401k'] : []).forEach(k => draft[k] = num('m_' + k) * 12); } },
+      ${wf('m_minPreTax', `Your ${T('b403', '403(b)')}, ${T('pretax', 'pre-tax')}`, { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.minPreTax / 12), unsure: SAVE_HELP })}
+      ${wf('m_minRoth403b', `Your 403(b), ${T('roth', 'Roth')}`, { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.minRoth403b / 12), unsure: SAVE_HELP })}
+      ${wf('m_minRothIRA', `Your ${T('rothira', 'Roth IRA')}`, { max: 700, step: 10, per: '/mo', get: () => Math.round(draft.minRothIRA / 12), unsure: IRA_HELP })}
+      ${draft.__status === 'MFJ' ? wf('m_spPreTax', "Spouse's workplace plan, pre-tax", { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.spPreTax / 12), unsure: SAVE_HELP }) +
+        wf('m_spRoth401k', "Spouse's workplace plan, Roth", { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.spRoth401k / 12), unsure: SAVE_HELP }) +
+        wf('m_spRothIRA', "Spouse's Roth IRA", { max: 700, step: 10, per: '/mo', get: () => Math.round(draft.spRothIRA / 12), unsure: IRA_HELP }) : ''}`,
+    save: () => { ['minPreTax', 'minRoth403b', 'minRothIRA'].concat(draft.__status === 'MFJ' ? ['spPreTax', 'spRoth401k', 'spRothIRA'] : []).forEach(k => draft[k] = num('m_' + k) * 12); } },
   { id: 'saved', title: "What you've saved so far", body: () => `
-      ${wf('minTradBal', 'Your 403(b), pre-tax balance', { max: 1000000, step: 1000 })}
+      <p class="small">Each account is either <strong>pre-tax</strong> (traditional) or <strong>Roth</strong>. <button type="button" class="linkish" data-kind-help>Not sure which kind you have?</button></p>
+      <div class="unsure" id="kindHelp" hidden><p>Look at your latest statement. Money labeled <strong>traditional</strong>, <strong>pre-tax</strong>, <strong>before-tax</strong> or <strong>elective deferral</strong> is pre-tax. Money labeled <strong>Roth</strong> is Roth. Many statements show both as separate lines.</p><p>Another clue: if putting money in lowered your taxable pay, it's pre-tax. If you can't tell, put it all under pre-tax for now and ask your plan provider.</p></div>
+      ${wf('minTradBal', 'Your retirement accounts, pre-tax', { max: 1000000, step: 1000, help: '403(b) or other workplace plan', unsure: BAL_HELP })}
       <div class="wz-field"><label for="wzChurch">Is your 403(b) a ${T('churchplan', 'church plan')} run by your church or denomination (for example GuideStone)?</label>
         <select id="wzChurch"><option value="100" ${draft.churchPlanPct >= 50 ? 'selected' : ''}>Yes</option><option value="0" ${draft.churchPlanPct < 50 ? 'selected' : ''}>No</option><option value="100">Not sure (assume yes; ask your plan)</option></select></div>
-      ${wf('minRothBal', 'Your Roth balances (403(b) Roth and Roth IRA)', { max: 1000000, step: 1000 })}
-      ${draft.__status === 'MFJ' ? wf('spTradBal', "Spouse's retirement accounts, pre-tax", { max: 1000000, step: 1000 }) : ''}
-      ${wf('miscTradBal', 'Other pre-tax IRAs or old 401(k)s', { max: 1000000, step: 1000 })}
-      ${wf('brokerageBal', `Other investments (${T('brokerage', 'brokerage')}), not cash for emergencies`, { max: 1000000, step: 1000 })}`,
-    save: () => { ['minTradBal', 'minRothBal', 'miscTradBal', 'brokerageBal'].concat(draft.__status === 'MFJ' ? ['spTradBal'] : []).forEach(k => draft[k] = num(k)); draft.churchPlanPct = +$('wzChurch').value; } },
+      ${wf('minRothBal', 'Your Roth accounts (Roth 403(b) and Roth IRA)', { max: 1000000, step: 1000, unsure: BAL_HELP })}
+      ${draft.__status === 'MFJ' ? wf('spTradBal', "Spouse's retirement accounts, pre-tax", { max: 1000000, step: 1000, help: '401(k), 403(b), 457(b) or traditional IRA', unsure: BAL_HELP }) +
+        wf('spRothBal', "Spouse's Roth accounts", { max: 1000000, step: 1000, help: 'Roth 401(k) or Roth IRA', unsure: BAL_HELP }) : ''}
+      ${wf('miscTradBal', 'Other pre-tax IRAs or old 401(k)s', { max: 1000000, step: 1000, help: 'Rollover IRAs, plans from past jobs', unsure: BAL_HELP })}`,
+    save: () => { ['minTradBal', 'minRothBal', 'miscTradBal'].concat(draft.__status === 'MFJ' ? ['spTradBal', 'spRothBal'] : []).forEach(k => draft[k] = num(k)); draft.churchPlanPct = +$('wzChurch').value; } },
+  { id: 'cash', title: 'Cash and investing', body: () => `
+      ${wf('cashBal', `Cash savings today (${T('emergency', 'emergency fund')} and savings accounts)`, { max: 200000, step: 500,
+        unsure: { where: 'Add up savings accounts plus checking beyond what you need this month.', typical: 0, typicalLabel: '0' } })}
+      ${wf('m_cashContrib', 'Added to cash savings each month', { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.cashContrib / 12),
+        unsure: { where: 'Automatic transfers to savings, or a rough average of what you set aside.', typical: 0, typicalLabel: '0' } })}
+      ${wf('brokerageBal', `Other investments (${T('brokerage', 'brokerage')}), not retirement accounts`, { max: 1000000, step: 1000,
+        unsure: { where: 'A regular investment account at Fidelity, Vanguard, Schwab and similar. Not a 403(b) or IRA.', typical: 0, typicalLabel: '0' } })}
+      ${wf('m_brokContrib', 'Added to those investments each month', { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.brokContrib / 12),
+        unsure: { where: 'Automatic investments into that account.', typical: 0, typicalLabel: '0' } })}`,
+    save: () => { draft.cashBal = num('cashBal'); draft.brokerageBal = num('brokerageBal'); draft.cashContrib = num('m_cashContrib') * 12; draft.brokContrib = num('m_brokContrib') * 12; } },
+  { id: 'budget', title: 'A rough monthly budget', body: () => {
+      const has = Object.values(draft.budget || {}).some(v => +v > 0) && !draft._budgetFromWizard && !draft.budgetExample;
+      if (has) return `<p>You already have a budget saved. You can adjust it any time on the Budget page.</p>`;
+      const src = draft.budgetExample ? {} : draft.budget;
+      const hb = Object.entries(src || {}).filter(([k]) => k.startsWith('h_')).reduce((a, [, v]) => a + (+v || 0), 0);
+      return `<p class="small">Just three rough numbers. This is a reference, not a precise budget; you can add detail later on the Budget page.</p>
+      ${wf('b_housing', 'Housing each month', { max: 8000, step: 25, per: '/mo', get: () => Math.round(hb || draft.housingActual / 12), help: 'Rent or mortgage, utilities, insurance, property tax, furniture, repairs.' })}
+      ${wf('b_giving', 'Giving each month', { max: 5000, step: 25, per: '/mo', get: () => Math.round(sumKeys(src, 'g_')), help: 'Church and other charitable giving.' })}
+      ${wf('b_rest', 'Everything else each month', { max: 15000, step: 50, per: '/mo', get: () => Math.round(restOf(src)), help: 'Food, transportation, kids, insurance, debt, personal, travel.',
+        unsure: { where: 'Look at last month\'s checking and credit card statements and add up everything except housing, giving and saving. A round number is fine.', typical: () => Math.max(0, Math.round((suggestTakeHome() - num('b_housing') - num('b_giving')) * 0.85 / 50) * 50), typicalLabel: 'most of what is left after housing and giving' } })}`; },
+    save: () => { if (!$('wz-b_housing')) return;
+      draft.budget = { h_rent: num('b_housing'), g_church: num('b_giving'), o_misc: num('b_rest') }; draft.budgetMode = 'simple'; draft._budgetFromWizard = true; draft.budgetExample = false; } },
   { id: 'retire', title: 'Picturing retirement', body: () => {
       const take = suggestTakeHome();
       if (!draft._retTouched) {   // replace untouched example values with ones scaled to this household
@@ -130,12 +180,16 @@ const STEPS = [
         if (draft.retHousing === 40000) draft.retHousing = draft.churchPlanPct > 0 ? Math.min(draft.housingDesignated, draft.housingActual) : 0;
         draft._retTouched = true;
       }
-      return `${wf('retireAge', 'Age you hope to retire', { min: Math.max(draft.minAge, 50), max: 75, step: 1, unit: '', per: 'yrs', get: () => draft.minAge + draft.yearsToRetire })}
-      ${wf('untilAge', 'Plan for money to last until age', { min: 75, max: 105, step: 1, unit: '', per: 'yrs', get: () => draft.minAge + draft.yearsToRetire + draft.retYears })}
-      ${wf('m_retSpend', "Monthly spending you'd like in retirement, in today's dollars", { max: 20000, step: 50, per: '/mo', get: () => Math.round(draft.retSpend / 12), help: `After taxes. Your take-home today is about ${money(take)}/mo; many people plan on 70–90% of that.` })}
-      ${wf('m_ssMin', `Your expected ${T('socialsecurity', 'Social Security')}`, { max: 5000, step: 25, per: '/mo', get: () => Math.round(draft.ssMin / 12), help: 'Find it at <a href="https://www.ssa.gov/myaccount/" target="_blank" rel="noopener">ssa.gov/myaccount</a>. Enter 0 if you opted out with Form 4361.' })}
-      ${draft.__status === 'MFJ' ? wf('m_ssSp', "Your spouse's expected Social Security", { max: 5000, step: 25, per: '/mo', get: () => Math.round(draft.ssSp / 12) }) : ''}
-      ${wf('m_retHousing', `Housing allowance you expect to take from your church plan in retirement`, { max: 8000, step: 50, per: '/mo', get: () => Math.round(draft.retHousing / 12), help: 'Roughly your expected housing costs in retirement. 0 if you have no church plan.' })}`; },
+      return `${wf('retireAge', 'Age you hope to retire', { min: Math.max(draft.minAge, 50), max: 75, step: 1, unit: '', per: 'yrs', get: () => draft.minAge + draft.yearsToRetire, unsure: { where: 'Many ministers plan for 65 to 70. Full Social Security age is 67 for anyone born 1960 or later.', typical: 67, typicalLabel: '67' } })}
+      ${wf('untilAge', 'Plan for money to last until age', { min: 75, max: 105, step: 1, unit: '', per: 'yrs', get: () => draft.minAge + draft.yearsToRetire + draft.retYears, unsure: { where: 'Planning to about 95 is a common, cautious choice, since one spouse often lives into their 90s.', typical: 95, typicalLabel: '95' } })}
+      ${wf('m_retSpend', "Monthly spending you'd like in retirement, in today's dollars", { max: 20000, step: 50, per: '/mo', get: () => Math.round(draft.retSpend / 12), help: `After taxes. Your take-home today is about ${money(take)}/mo.`,
+        unsure: { where: 'Many people plan on 70 to 90% of what they spend today. Less if the mortgage will be paid off; more if you hope to travel or give more.', typical: () => Math.round(take * 0.8 / 50) * 50, typicalLabel: '80% of take-home' } })}
+      ${wf('m_ssMin', `Your expected ${T('socialsecurity', 'Social Security')}`, { max: 5000, step: 25, per: '/mo', get: () => Math.round(draft.ssMin / 12), help: 'Enter 0 if you opted out with Form 4361.',
+        unsure: { where: 'Create a free account at <a href="https://www.ssa.gov/myaccount/" target="_blank" rel="noopener">ssa.gov/myaccount</a>. Your statement shows the monthly benefit at different ages. Use the amount at your full retirement age.', typical: () => Math.min(3500, Math.round(draft.minComp * 0.4 / 12 / 25) * 25), typicalLabel: 'a rough guess from your pay' } })}
+      ${draft.__status === 'MFJ' ? wf('m_ssSp', "Your spouse's expected Social Security", { max: 5000, step: 25, per: '/mo', get: () => Math.round(draft.ssSp / 12),
+        unsure: { where: 'Your spouse can check at ssa.gov/myaccount too. A spouse with little work history may still receive up to half of your benefit.', typical: () => Math.round(num('m_ssMin') * 0.5 / 25) * 25, typicalLabel: 'half of yours' } }) : ''}
+      ${wf('m_retHousing', `Housing allowance you expect to take from your church plan in retirement`, { max: 8000, step: 50, per: '/mo', get: () => Math.round(draft.retHousing / 12), help: '0 if you have no church plan.',
+        unsure: { where: 'Roughly what housing will cost you in retirement. Your church plan provider designates it; ask them how it works for retirees.', typical: () => Math.round(Math.min(draft.housingDesignated, draft.housingActual) / 12 / 50) * 50, typicalLabel: 'your housing costs today' } })}`; },
     save: () => { const ra = num('retireAge'); draft.yearsToRetire = Math.max(0, ra - draft.minAge); draft.retYears = Math.max(5, num('untilAge') - ra);
       draft.retSpend = num('m_retSpend') * 12; draft.ssMin = num('m_ssMin') * 12; if (draft.__status === 'MFJ') draft.ssSp = num('m_ssSp') * 12;
       draft.retHousing = num('m_retHousing') * 12; draft.todaysDollars = true; } },
@@ -222,6 +276,15 @@ function close(){
   const b = $('btnGuide'); if (b) b.focus();
 }
 wrap.addEventListener('click', e => {
+  const un = e.target.closest('[data-unsure]');
+  if (un) { const box = $('un-' + un.dataset.unsure); box.hidden = !box.hidden; un.setAttribute('aria-expanded', !box.hidden); return; }
+  const ty = e.target.closest('[data-typical]');
+  if (ty) { const k = ty.dataset.typical, t = UNSURE[k].u.typical, v = typeof t === 'function' ? t() : t;
+    const n = $('wz-' + k), sl = $('wz-sl-' + k); n.value = v; if (+sl.max < v) sl.max = v; sl.value = v; sl.dispatchEvent(new Event('input')); ty.textContent = 'Used ' + money(v); return; }
+  const ask = e.target.closest('[data-unsure-ask]');
+  if (ask) { const c = UNSURE[ask.dataset.unsureAsk]; const q = c.label.replace(/<[^>]+>/g, '');
+    A.copyText(`I'm a minister (or a minister's spouse) filling out a retirement and tax planning tool. It asks: "${q}". In plain language, explain what this means, where I can find my number, and what a reasonable estimate would be if I can't find it. Hint from the tool: ${c.u.where.replace(/<[^>]+>/g, '')}`, ask); return; }
+  if (e.target.closest('[data-kind-help]')) { const h = $('kindHelp'); h.hidden = !h.hidden; return; }
   const st = e.target.closest('[data-status]');
   if (st) { visible()[step].save && visible()[step].save(); draft.__status = st.dataset.status; show(step); return; }
   const a = e.target.closest('[data-wz]'); if (!a) return;

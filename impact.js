@@ -23,7 +23,11 @@ const lastRow = r => r.ret.rows[r.ret.rows.length - 1];
 const pct = x => Math.round(x * 100) + '%';
 const yrs = x => Math.round(x) + ' yrs';
 const FIG = {
-  takeHomeMo: { label: 'Take-home / month', term: 'takehome', up: true, f: fmt, v: r => r.today.householdNet / 12 },
+  takeHomeMo: { label: 'Take-home / month', term: 'takehome', up: true, f: fmt, v: r => r.today.takeHome / 12 },
+  leftMo: { label: 'Left for spending & giving / month', short: 'Left to spend / mo', term: 'takehome', up: true, f: fmt, v: r => r.today.householdNet / 12 },
+  budgetLeft: { label: 'Budget surplus / month', short: 'Budget surplus', term: 'budget', up: true, f: v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v)), v: r => r.today.householdNet / 12 - A.budgetMo() },
+  taxGap: { label: 'Tax likely owed in April', short: 'Owed in April', term: 'setaside', up: false, f: fmt, v: r => Math.max(0, r.today.setAside.gap) },
+  emergency: { label: 'Emergency fund (months)', short: 'Emergency fund', term: 'emergency', up: true, f: v => v.toFixed(1) + ' mo', v: r => { const mo = A.budgetMo() > 0 ? A.budgetMo() : r.today.householdNet / 12; return mo > 0 ? r.p.cashBal / mo : 0; } },
   retIncomeMo: { label: 'Retirement income from savings / month', short: 'Retirement income / mo', term: 'retincome', up: true, f: fmt, v: retIncomeMo },
   atRet: { label: "Savings at retirement (today's $)", short: 'At retirement', term: 'todaysdollars', up: true, f: fmt, v: r => E.sumB(r.acc.end) / Math.pow(1 + r.p.inflation, Math.round(r.p.yearsToRetire)) },
   mc: { label: 'Monte Carlo success', short: 'Success rate', term: 'montecarlo', up: true, f: pct, v: r => r.mc.successRate },
@@ -33,7 +37,7 @@ const FIG = {
   netAdv: { label: 'Net advantage vs W-2', short: 'Net vs W-2', term: 'netadvantage', up: true, f: v => (v >= 0 ? '+' : '') + fmt(v), v: r => r.today.netAdvantage }
 };
 A.FIGURES = FIG;
-const DEFAULT_WATCH = ['takeHomeMo', 'retIncomeMo', 'mc', 'legacy'];
+const DEFAULT_WATCH = ['takeHomeMo', 'budgetLeft', 'retIncomeMo', 'mc'];
 let watch = (A.store.get('mtw.watch', DEFAULT_WATCH) || DEFAULT_WATCH).filter(k => FIG[k]).slice(0, 4);
 if (!watch.length) watch = DEFAULT_WATCH.slice();
 A.getWatch = () => watch.slice();
@@ -43,7 +47,8 @@ const values = r => Object.fromEntries(Object.keys(FIG).map(k => [k, FIG[k].v(r)
 let base = null, baseInputs = null, field = null, pinned = false;
 
 const SAVE_FIELDS = { minPreTax: 'your 403(b) pre-tax', minRoth403b: 'your Roth 403(b)', minRothIRA: 'your Roth IRA',
-  spPreTax: "your spouse's pre-tax plan", spRoth401k: "your spouse's Roth plan", spRothIRA: "your spouse's Roth IRA" };
+  spPreTax: "your spouse's pre-tax plan", spRoth401k: "your spouse's Roth plan", spRothIRA: "your spouse's Roth IRA",
+  cashContrib: 'cash savings', brokContrib: 'your brokerage account' };
 const SKIP = /^(tx\d+|scenName|aiKey|aiModel|aiProvider|chatInput|learnSearch|wz-|sl-|a[A-Z]|v[P]|n[VP])/;
 function labelFor(id){
   const l = document.querySelector(`label[for="${id}"]`);
@@ -84,10 +89,11 @@ function renderStory(r, now){
   const p = r.p, Y = Math.round(p.yearsToRetire), n = Math.round(p.retYears);
   let html = '';
   if (SAVE_FIELDS[field] && was !== is) {
-    const dSave = (is - was) / 12, dTake = now.takeHomeMo - base.takeHomeMo, dRet = now.retIncomeMo - base.retIncomeMo;
+    const dSave = (is - was) / 12, dTake = now.leftMo - base.leftMo, dRet = now.retIncomeMo - base.retIncomeMo;
     const more = dSave > 0;
-    html = `<p><strong>${more ? 'Saving' : 'Saving'} ${fmt(Math.abs(dSave))} ${more ? 'more' : 'less'} a month</strong> in ${SAVE_FIELDS[field]} changes take-home pay by <strong>${dTake >= 0 ? '+' : '−'}${fmt(Math.abs(dTake))}/mo</strong> today`;
-    if (Y > 0) {
+    html = `<p><strong>${more ? 'Saving' : 'Saving'} ${fmt(Math.abs(dSave))} ${more ? 'more' : 'less'} a month</strong> in ${SAVE_FIELDS[field]} changes your monthly spending money by <strong>${dTake >= 0 ? '+' : '−'}${fmt(Math.abs(dTake))}/mo</strong> today`;
+    if (field === 'cashContrib') html += `. Cash savings isn't counted as retirement income, but it protects you from surprises.`;
+    else if (Y > 0) {
       html += ` and retirement income by <strong>${dRet >= 0 ? '+' : '−'}${fmt(Math.abs(dRet))}/mo</strong> for ${n} years <span class="muted">(today's dollars, before tax)</span>.`;
       const putIn = Math.abs(dSave) * 12 * Y, getOut = Math.abs(dRet) * 12 * n;
       if (putIn > 0 && getOut > 0) html += ` ${fmt(putIn)} set aside over ${Y} years becomes about <strong>${fmt(getOut)}</strong> to live on and give from later.`;
