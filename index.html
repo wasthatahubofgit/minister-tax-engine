@@ -225,6 +225,9 @@ body.wz-open{overflow:hidden}
 @media (max-width:640px){
   .bar-in h1{font-size:1.05rem}
   .bar-actions .btn{padding:6px 10px;font-size:.8rem}
+  .bar-in{grid-template-columns:1fr}
+  .bar-actions{justify-self:start;flex-wrap:wrap}
+  .bar-actions .seg button{padding:5px 9px;font-size:.78rem}
   .impact-quote{display:none}
   .impact-in{font-size:.82rem;padding:6px 16px}
   .chip{padding:3px 8px} .chip b{font-size:.9rem}
@@ -282,6 +285,7 @@ body.simple .adv{display:none!important}
 .plan-note:empty{display:none}
 .plan-left{display:flex;justify-content:space-between;align-items:center;font-size:.9rem;padding:8px 10px;border-radius:8px;background:var(--surface-2)}
 .plan-left.bad{background:var(--bad-soft);color:var(--bad)}
+.plan.free .plan-left:not(.bad){background:var(--accent-soft);border:1px solid var(--accent)}
 .setaside{display:grid;gap:8px}
 .duedates{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
 .duedates div{background:var(--surface-2);border-radius:8px;padding:6px 8px;font-size:.8rem;display:grid}

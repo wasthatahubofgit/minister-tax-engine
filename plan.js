@@ -25,10 +25,13 @@ const BUCKETS = [
   { id: 'housing', label: 'Housing', color: '--c-house', term: 'housing', budget: 'housing', get: () => A.budgetSumOf('housing'), set: v => A.budgetSetTotal('housing', v), max: () => A.getLast().today.takeHome / 12 },
   { id: 'everyday', label: 'Everyday spending', color: '--c-trad', term: 'budget', budget: 'everyday', get: () => A.budgetSumOf('everyday'), set: v => A.budgetSetTotal('everyday', v), max: () => A.getLast().today.takeHome / 12 }
 ];
-// Where money comes from when something grows: flexible bucket first
-const TAKE_ORDER = ['everyday', 'cash', 'brok', 'giving', 'housing', 'minIRA', 'spIRA', 'minRoth', 'spRoth', 'minPre', 'spPre'];
+// Where money comes from when something grows: flexible bucket first.
+// Retirement accounts are never drained to fund other choices (including each other).
+const TAKE_ORDER = ['everyday', 'cash', 'brok', 'giving', 'housing'];
 let locks = A.store.get('mtw.locks', { giving: true, housing: true });
 let leftoverTo = A.store.get('mtw.leftoverTo', 'none');
+// 'linked': other sliders adjust. 'free': like assigning skill points, each slider only draws from what's unassigned.
+let mode = A.store.get('mtw.planMode', 'linked');
 const undo = [];
 const active = () => BUCKETS.filter(b => !b.spouse || mfj());
 
@@ -44,7 +47,7 @@ function move(b, target){
   target = Math.max(0, Math.min(target, b.max()));
   b.set(target);
   let U = leftover();
-  if (U < -0.5) {
+  if (U < -0.5 && mode === 'linked') {
     for (const id of TAKE_ORDER) {
       if (U >= -0.5) break;
       const o = BUCKETS.find(x => x.id === id);
@@ -60,8 +63,9 @@ function move(b, target){
     let lo = Math.min(before, target), hi = target;
     for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; b.set(mid); if (leftover() >= -0.5) lo = mid; else hi = mid; }
     b.set(lo); U = leftover();
-    note(`Limited to ${fmt(lo)}/mo: everything else is locked or already at zero.`);
-  } else if (U > 0.5 && leftoverTo !== 'none') {
+    note(mode === 'free' ? `Stopped at ${fmt(lo)}/mo: nothing left to assign. Lower something else first to free up money.`
+      : `Stopped at ${fmt(lo)}/mo: everyday spending, cash, investing, giving and housing are locked or at zero, and retirement saving is never cut to fund other choices.`);
+  } else if (U > 0.5 && leftoverTo !== 'none' && mode === 'linked') {
     const dest = BUCKETS.find(x => x.id === leftoverTo);
     if (dest && dest !== b && !locks[dest.id]) dest.set(dest.get() + U);
   }
@@ -72,26 +76,31 @@ function note(t){ const el = $('planNote'); if (el) el.textContent = t || ''; }
 const LOCK = on => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 ${on ? '5 0v2' : '5 0'}"/></svg>`;
 
 function build(mount){
-  mount.innerHTML = `<div class="plan">
+  const free = mode === 'free', isLocked = id => !free && locks[id];
+  mount.innerHTML = `<div class="plan ${free ? 'free' : ''}">
+    <div class="row" style="justify-content:space-between"><div class="seg" role="group" aria-label="How sliders behave">
+      <button type="button" data-pmode="linked" aria-pressed="${!free}">Linked</button><button type="button" data-pmode="free" aria-pressed="${free}">Assign freely</button></div>
+      <span class="small muted">${free ? 'Each slider spends only what is left to assign, like skill points.' : 'Move one and the others adjust to keep the plan balanced.'}</span></div>
     <div class="plan-bar" id="planBar" role="img" aria-label="Where each month's pay goes"></div>
     <div class="legend2" id="planLegend"></div>
     <div id="planRows" style="display:grid;gap:10px"></div>
     <div class="plan-left" id="planLeft"></div>
-    <div class="row small"><label for="pl-leftover">Leftover money goes to</label>
+    <div class="row small" ${free ? 'hidden' : ''}><label for="pl-leftover">Leftover money goes to</label>
       <select id="pl-leftover" class="text-in" style="width:auto;padding:4px 8px">
         <option value="none">Stays unassigned</option><option value="cash">Cash savings</option><option value="brok">Investing</option><option value="everyday">Everyday spending</option><option value="giving">Giving</option>
       </select></div>
     <p class="plan-note" id="planNote" aria-live="polite"></p>
-    <div class="row"><button class="btn" type="button" id="pl-undo" disabled>Undo</button><span class="small muted">Lock a slider to keep it fixed. Others adjust, starting with everyday spending.</span></div>
+    <div class="row"><button class="btn" type="button" id="pl-undo" disabled>Undo</button><span class="small muted">${free ? 'Lower any slider to free up money, then assign it elsewhere.' : 'Lock a slider to keep it fixed. Others adjust, starting with everyday spending. Retirement saving is never cut automatically.'}</span></div>
   </div>`;
+  mount.querySelectorAll('[data-pmode]').forEach(btn => btn.onclick = () => { mode = btn.dataset.pmode; A.store.set('mtw.planMode', mode); build(mount); note(''); });
   $('pl-leftover').value = leftoverTo;
   $('pl-leftover').onchange = e => { leftoverTo = e.target.value; A.store.set('mtw.leftoverTo', leftoverTo); };
   $('pl-undo').onclick = () => { const s = undo.pop(); if (s) { A.setInputs(s); A.recalc(false); A.syncSliders && A.syncSliders(); } $('pl-undo').disabled = !undo.length; note(''); };
-  $('planRows').innerHTML = active().map(b => `<div class="plan-row ${b.adv ? 'adv' : ''} ${locks[b.id] ? 'locked' : ''}" data-b="${b.id}">
-      <button type="button" class="lock" data-lock="${b.id}" aria-pressed="${!!locks[b.id]}" aria-label="${locks[b.id] ? 'Unlock' : 'Lock'} ${esc(b.label)}">${LOCK(!!locks[b.id])}</button>
+  $('planRows').innerHTML = active().map(b => `<div class="plan-row ${b.adv ? 'adv' : ''} ${isLocked(b.id) ? 'locked' : ''}" data-b="${b.id}">
+      ${free ? '<span></span>' : `<button type="button" class="lock" data-lock="${b.id}" aria-pressed="${!!locks[b.id]}" aria-label="${locks[b.id] ? 'Unlock' : 'Lock'} ${esc(b.label)}">${LOCK(!!locks[b.id])}</button>`}
       <span class="pr-name"><i style="background:var(${b.color})"></i><span>${esc(b.label)}</span><button type="button" class="term-q" data-term="${b.term}" aria-label="What is ${esc(b.label)}?">?</button></span>
       <input type="number" id="pl-n-${b.id}" min="0" step="10" inputmode="decimal" aria-label="${esc(b.label)} per month">
-      <input type="range" id="pl-s-${b.id}" min="0" step="5" aria-label="${esc(b.label)} per month slider" ${locks[b.id] ? 'disabled' : ''}>
+      <input type="range" id="pl-s-${b.id}" min="0" step="5" aria-label="${esc(b.label)} per month slider" ${isLocked(b.id) ? 'disabled' : ''}>
     </div>`).join('');
   mount.querySelectorAll('[data-lock]').forEach(btn => btn.onclick = () => {
     const id = btn.dataset.lock; locks[id] = !locks[id]; A.store.set('mtw.locks', locks);
@@ -108,7 +117,7 @@ function build(mount){
     sl.addEventListener('input', () => { start(); move(b, +sl.value); num.value = Math.round(b.get()); A.schedule(true); });
     sl.addEventListener('change', end);
     num.addEventListener('focus', start);
-    num.addEventListener('change', () => { if (locks[b.id]) { num.value = Math.round(b.get()); note('Unlock this one to change it.'); return; } start(); move(b, parseFloat(num.value) || 0); end(); });
+    num.addEventListener('change', () => { if (mode === 'linked' && locks[b.id]) { num.value = Math.round(b.get()); note('Unlock this one to change it.'); return; } start(); move(b, parseFloat(num.value) || 0); end(); });
   });
   update();
 }
@@ -118,7 +127,7 @@ function update(){
   const gross = grossMo(), t = r.today;
   const taxes = gross - (t.takeHome / 12) - (t.minister.preTax + t.minister.roth + t.spouse.preTax + t.spouse.roth) / 12;
   const segs = [['Taxes', taxes, '--muted']].concat(active().map(b => [b.label, b.get(), b.color]));
-  const U = t.householdNet / 12 - A.budgetMo();
+  let U = t.householdNet / 12 - A.budgetMo(); if (Math.abs(U) < 0.5) U = 0;
   if (U > 0) segs.push(['Unassigned', U, '--line']);
   const total = Math.max(gross, segs.reduce((a, s) => a + Math.max(0, s[1]), 0)) || 1;
   $('planBar').innerHTML = segs.filter(s => s[1] > 0.5).map(([l, v, c]) => `<i style="width:${(v / total * 100).toFixed(2)}%;background:var(${c})" title="${esc(l)} ${fmt(v)}/mo"></i>`).join('');
@@ -135,7 +144,8 @@ function update(){
   el.className = 'plan-left' + (U < -0.5 ? ' bad' : '');
   el.innerHTML = A.budgetMo() === 0
     ? `<span>Add a budget to see spending here.</span><button class="linkish" type="button">Open Budget</button>`
-    : U < -0.5 ? `<span>Overspent each month</span><b class="num">${fmt(-U)}</b>` : `<span>Unassigned each month</span><b class="num">${fmt(U)}</b>`;
+    : U < -0.5 ? `<span>Overspent each month</span><b class="num">${fmt(-U)}</b>`
+    : mode === 'free' ? `<span><strong>Left to assign</strong> each month</span><b class="num big" style="font-size:1.25rem">${fmt(U)}</b>` : `<span>Unassigned each month</span><b class="num">${fmt(U)}</b>`;
   const ob = el.querySelector("button"); if (ob) ob.onclick = () => A.showTab("budget");
 }
 

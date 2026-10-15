@@ -25,7 +25,7 @@ const yrs = x => Math.round(x) + ' yrs';
 const FIG = {
   takeHomeMo: { label: 'Take-home / month', term: 'takehome', up: true, f: fmt, v: r => r.today.takeHome / 12 },
   leftMo: { label: 'Left for spending & giving / month', short: 'Left to spend / mo', term: 'takehome', up: true, f: fmt, v: r => r.today.householdNet / 12 },
-  budgetLeft: { label: 'Budget surplus / month', short: 'Budget surplus', term: 'budget', up: true, f: v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v)), v: r => r.today.householdNet / 12 - A.budgetMo() },
+  budgetLeft: { label: 'Budget surplus / month', short: 'Budget surplus', term: 'budget', up: true, f: v => Math.abs(v) < 0.5 ? '$0' : (v >= 0 ? '+' : '−') + fmt(Math.abs(v)), v: r => r.today.householdNet / 12 - A.budgetMo() },
   taxGap: { label: 'Tax likely owed in April', short: 'Owed in April', term: 'setaside', up: false, f: fmt, v: r => Math.max(0, r.today.setAside.gap) },
   emergency: { label: 'Emergency fund (months)', short: 'Emergency fund', term: 'emergency', up: true, f: v => v.toFixed(1) + ' mo', v: r => { const mo = A.budgetMo() > 0 ? A.budgetMo() : r.today.householdNet / 12; return mo > 0 ? r.p.cashBal / mo : 0; } },
   retIncomeMo: { label: 'Retirement income from savings / month', short: 'Retirement income / mo', term: 'retincome', up: true, f: fmt, v: retIncomeMo },

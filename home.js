@@ -7,7 +7,7 @@ const go = (tab, label) => `<button type="button" class="linkish small" data-go=
 const mini = items => `<div class="mini-kpis">${items.map(([l, v, c]) => `<div><span class="eyebrow">${l}</span><b ${c ? `style="color:var(--${c})"` : ''}>${v}</b></div>`).join('')}</div>`;
 
 const CARDS = {
-  plan: { title: 'Your monthly plan', wide: true, intro: 'Slide any amount. Locked items stay put; the rest adjust so the plan always adds up.',
+  plan: { title: 'Your monthly plan', wide: true, intro: 'Slide or type any amount to see how saving, giving and spending fit together each month.',
     mount: el => A.mountPlan(el) },
   paycheck: { title: 'Where your paycheck goes', render: r => {
     const t = r.today, mfj = r.p.status === 'MFJ', gross = (r.p.minComp + (mfj ? r.p.spGross : 0)) / 12;
