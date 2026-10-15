@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Free tax and retirement planner for ministers: housing allowance, SECA, 403(b), RMDs, Roth conversions.">
+<title>Lifecycle Minister Tax &amp; Wealth Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
+<style>
+/* Layout: sticky verdict bar → tab rail → per-tab two-column (inputs | results), stacking on phones.
+   Ledger-like: figures in mono, IRC citations as small marginal chips. */
+:root{
+  --bg:#f5f5f9; --surface:#ffffff; --surface-2:#eef0f6; --ink:#1a1c2b; --muted:#5b5f75; --line:#dde0ea;
+  --accent:#4338ca; --accent-ink:#ffffff; --accent-soft:#e7e6fa;
+  --good:#0d7a53; --good-soft:#e1f3eb; --bad:#b3203a; --bad-soft:#fae6ea; --warn:#9a5806; --warn-soft:#fbf0dd;
+  --c-church:#4338ca; --c-trad:#d08a1f; --c-spouse:#b45a1b; --c-roth:#0e8a62; --c-brok:#6b7389;
+  --c-fixed:#7c83a0; --c-rmd:#c2334c; --c-conv:#7b6cf0; --c-draw:#d08a1f;
+  --f-display:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#10111a; --surface:#181a26; --surface-2:#212435; --ink:#e7e8f2; --muted:#9a9db4; --line:#2d3046;
+  --accent:#8f88ff; --accent-ink:#10111a; --accent-soft:#272550;
+  --good:#3fcf96; --good-soft:#123227; --bad:#ff6e86; --bad-soft:#3a1720; --warn:#f2aa47; --warn-soft:#352610;
+  --c-church:#8f88ff; --c-trad:#f0b54d; --c-spouse:#e2864a; --c-roth:#3fcf96; --c-brok:#9aa2bb;
+  --c-fixed:#9aa2bb; --c-rmd:#ff6e86; --c-conv:#b4a9ff; --c-draw:#f0b54d; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#10111a; --surface:#181a26; --surface-2:#212435; --ink:#e7e8f2; --muted:#9a9db4; --line:#2d3046;
+  --accent:#8f88ff; --accent-ink:#10111a; --accent-soft:#272550;
+  --good:#3fcf96; --good-soft:#123227; --bad:#ff6e86; --bad-soft:#3a1720; --warn:#f2aa47; --warn-soft:#352610;
+  --c-church:#8f88ff; --c-trad:#f0b54d; --c-spouse:#e2864a; --c-roth:#3fcf96; --c-brok:#9aa2bb;
+  --c-fixed:#9aa2bb; --c-rmd:#ff6e86; --c-conv:#b4a9ff; --c-draw:#f0b54d; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{margin:0}
+a{color:var(--accent)}
+input[type=email],input[type=password],input[type=text]{font:inherit}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1220px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;text-wrap:balance;margin:0}
+h1{font-size:1.35rem;letter-spacing:-.01em}
+h2{font-size:1.25rem}
+h3{font-size:1rem;font-family:var(--f-body);font-weight:600}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.cite{font-family:var(--f-mono);font-size:.7rem;color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:4px;white-space:nowrap}
+
+/* Sticky verdict bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1220px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;flex-direction:column;padding:4px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.chip b{font-family:var(--f-mono);font-size:.98rem;font-weight:500}
+.chip span{font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.chip.good b{color:var(--good)} .chip.bad b{color:var(--bad)} .chip.warn b{color:var(--warn)}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;overflow-x:auto;padding-block:14px 6px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;font:inherit;font-size:.88rem;font-weight:500;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.panel{display:grid;gap:18px;padding-top:8px}
+@media(max-width:959px){.panel.split>.stack{order:-1}}
+@media(min-width:960px){.panel.split{grid-template-columns:360px minmax(0,1fr);align-items:start}}
+.stack{display:grid;gap:16px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+
+/* Inputs */
+fieldset{border:0;margin:0;padding:0;display:grid;gap:10px}
+legend{padding:0;margin-bottom:6px}
+.field{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:10px;align-items:center}
+.field label{font-size:.88rem;min-width:0}
+.field.wide{grid-template-columns:90px minmax(0,1fr)}
+.field label small{display:block;color:var(--muted);font-size:.74rem;line-height:1.3}
+input[type=number],select{width:100%;font:inherit;font-family:var(--f-mono);font-size:.9rem;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);text-align:right}
+select{text-align:left;font-family:var(--f-body)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:.88rem}
+.check input{margin-top:3px;accent-color:var(--accent);width:16px;height:16px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:.84rem;padding:5px 12px;border:0;background:var(--surface);color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.group-title{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}
+.group-title:first-child{border-top:0;padding-top:0;margin-top:0}
+.warnlist{display:grid;gap:6px}
+.warn-item{font-size:.82rem;padding:8px 10px;border-radius:7px;background:var(--warn-soft);color:var(--warn)}
+.field.flag input{border-color:var(--warn)}
+
+/* Results */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{padding:14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line);display:grid;gap:2px;min-width:0}
+.kpi .v{font-family:var(--f-mono);font-size:1.55rem;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:.74rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.kpi .s{font-size:.8rem;color:var(--muted)}
+.kpi.good{border-left:3px solid var(--good)} .kpi.good .v{color:var(--good)}
+.kpi.bad{border-left:3px solid var(--bad)} .kpi.bad .v{color:var(--bad)}
+.kpi.warn{border-left:3px solid var(--warn)} .kpi.warn .v{color:var(--warn)}
+
+.ledger{width:100%;border-collapse:collapse;font-size:.9rem}
+.ledger td,.ledger th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.ledger th{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.ledger td.r,.ledger th.r{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ledger tr.total td{font-weight:600;border-top:2px solid var(--ink);border-bottom:0}
+.ledger .neg{color:var(--bad)} .ledger .pos{color:var(--good)}
+.tscroll{overflow-x:auto}
+.tscroll .ledger{min-width:980px;font-size:.8rem}
+.tscroll .ledger td,.tscroll .ledger th{padding:5px 6px}
+.chartbox{position:relative;height:260px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.78rem;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.btn{font:inherit;font-size:.86rem;font-weight:500;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.note{font-size:.84rem;color:var(--muted);max-width:68ch}
+.meter{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+.flow{display:grid;gap:8px}
+.flow-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;font-size:.88rem}
+.flow-row .meter{grid-column:1 / -1}
+.audit{font-size:.92rem;line-height:1.6;max-width:72ch}
+.audit h4{font-family:var(--f-display);font-size:1.05rem;margin:16px 0 4px}
+.audit ul{padding-left:20px;margin:6px 0}
+.audit p{margin:6px 0}
+.scen{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.scen .card{display:grid;gap:6px}
+.delta-up{color:var(--good)} .delta-down{color:var(--bad)}
+.tests{display:grid;gap:4px;font-size:.8rem;font-family:var(--f-mono)}
+.tests .pass{color:var(--good)} .tests .fail{color:var(--bad)}
+.text-input{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);min-width:0;flex:1 1 180px}
+.hidden-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+footer{margin-top:28px;font-size:.78rem;color:var(--muted);max-width:80ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="bar" role="region" aria-label="Summary">
+  <div class="bar-in">
+    <h1>Minister Tax &amp; Wealth Engine <span class="muted small num">V14 · TY2026</span></h1>
+    <div class="row"><div class="chips" id="chips"></div><button class="btn" id="btnAccount" type="button">Sign in</button></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" data-tab="today" aria-selected="true">Today</button>
+    <button class="tab" role="tab" data-tab="grow" aria-selected="false">Accumulation</button>
+    <button class="tab" role="tab" data-tab="retire" aria-selected="false">Retirement</button>
+    <button class="tab" role="tab" data-tab="years" aria-selected="false">Year by year</button>
+    <button class="tab" role="tab" data-tab="scen" aria-selected="false">Scenarios</button>
+    <button class="tab" role="tab" data-tab="audit" aria-selected="false">AI audit</button>
+    <button class="tab" role="tab" data-tab="account" aria-selected="false">My account</button>
+    <button class="tab" role="tab" data-tab="rules" aria-selected="false">Assumptions &amp; tax law</button>
+  </nav>
+
+  <!-- ===================== TODAY ===================== -->
+  <section class="panel split" data-panel="today">
+    <div class="card">
+      <fieldset>
+        <div class="group-title"><h3>Household</h3>
+          <div class="seg" role="group" aria-label="Filing status">
+            <button type="button" id="stMFJ" aria-pressed="true">MFJ</button>
+            <button type="button" id="stSingle" aria-pressed="false">Single</button>
+          </div>
+        </div>
+        <div class="field"><label for="minAge">Minister age</label><input type="number" id="minAge" step="1"></div>
+        <div class="field spouse-only"><label for="spAge">Spouse age</label><input type="number" id="spAge" step="1"></div>
+
+        <div class="group-title"><h3>Minister</h3><span class="cite">§107 · §1402</span></div>
+        <div class="field"><label for="minComp">Total compensation<small>Salary including the housing allowance</small></label><input type="number" id="minComp" step="100"></div>
+        <div class="field"><label for="housingDesignated">Housing allowance designated<small>By the church, in advance</small></label><input type="number" id="housingDesignated" step="100"></div>
+        <div class="field"><label for="housingActual">Actual housing expenses<small>Mortgage/rent, utilities, furnishings</small></label><input type="number" id="housingActual" step="100"></div>
+        <div class="field"><label for="housingFRV">Fair rental value<small>Furnished, plus utilities</small></label><input type="number" id="housingFRV" step="100"></div>
+        <div class="field"><label for="minPreTax">403(b) pre-tax deferral</label><input type="number" id="minPreTax" step="500"></div>
+        <div class="field"><label for="minRoth403b">403(b) Roth deferral<small>Shares the deferral limit</small></label><input type="number" id="minRoth403b" step="500"></div>
+        <div class="field"><label for="minRothIRA">Roth IRA contribution</label><input type="number" id="minRothIRA" step="500"></div>
+
+        <div class="group-title spouse-only"><h3>Spouse (W-2)</h3></div>
+        <div class="field spouse-only"><label for="spGross">W-2 gross wages</label><input type="number" id="spGross" step="100"></div>
+        <div class="field spouse-only"><label for="spPreTax">401(k)/457(b) pre-tax</label><input type="number" id="spPreTax" step="500"></div>
+        <div class="field spouse-only"><label for="spRoth401k">401(k)/457(b) Roth</label><input type="number" id="spRoth401k" step="500"></div>
+        <div class="field spouse-only"><label for="spRothIRA">Roth IRA contribution</label><input type="number" id="spRothIRA" step="500"></div>
+        <div class="warnlist" id="warnings"></div>
+      </fieldset>
+    </div>
+
+    <div class="stack">
+      <div class="kpis" id="todayKpis"></div>
+      <div class="card">
+        <div class="card-h"><h2>Dual-status math</h2><span class="muted small">vs. the same pay as a W-2 employee</span></div>
+        <table class="ledger" id="dualTable"></table>
+        <p class="note" id="breakEvenNote"></p>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>SECA detail</h2><span class="cite">§1401 · §164(f)</span></div>
+        <table class="ledger" id="secaTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Household cash flow</h2><span class="muted small">Income tax split by share of AGI (approximation)</span></div>
+        <div class="tscroll" style="overflow-x:auto"><table class="ledger" id="cashTable" style="min-width:420px"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ACCUMULATION ===================== -->
+  <section class="panel split" data-panel="grow" hidden>
+    <div class="card">
+      <fieldset>
+        <div class="group-title"><h3>Growth</h3></div>
+        <div class="field"><label for="yearsToRetire">Years to retirement</label><input type="number" id="yearsToRetire" step="1"></div>
+        <div class="field"><label for="accReturn">Return before retirement (%)</label><input type="number" id="accReturn" step="0.1"></div>
+        <div class="field"><label for="salaryGrowth">Contribution growth (%/yr)<small>Raises flow into deferrals</small></label><input type="number" id="salaryGrowth" step="0.1"></div>
+        <div class="group-title"><h3>Current balances</h3></div>
+        <div class="field"><label for="minTradBal">Minister 403(b) traditional</label><input type="number" id="minTradBal" step="1000"></div>
+        <div class="field"><label for="churchPlanPct">…share in a church plan (%)<small>Eligible for the retirement housing exclusion</small></label><input type="number" id="churchPlanPct" step="5"></div>
+        <div class="field"><label for="minRothBal">Minister Roth</label><input type="number" id="minRothBal" step="1000"></div>
+        <div class="field spouse-only"><label for="spTradBal">Spouse traditional</label><input type="number" id="spTradBal" step="1000"></div>
+        <div class="field spouse-only"><label for="spRothBal">Spouse Roth</label><input type="number" id="spRothBal" step="1000"></div>
+        <div class="field"><label for="miscTradBal">Other traditional IRAs<small>Treated as the minister's</small></label><input type="number" id="miscTradBal" step="1000"></div>
+        <div class="field"><label for="miscRothBal">Other Roth IRAs</label><input type="number" id="miscRothBal" step="1000"></div>
+        <div class="field"><label for="brokerageBal">Taxable brokerage</label><input type="number" id="brokerageBal" step="1000"></div>
+      </fieldset>
+    </div>
+    <div class="stack">
+      <div class="kpis" id="growKpis"></div>
+      <div class="card">
+        <div class="card-h"><h2>Balances by bucket</h2><span class="muted small">Nominal dollars</span></div>
+        <div class="chartbox"><canvas id="chGrow" aria-label="Accumulation by bucket"></canvas></div>
+        <div class="legend" id="lgGrow"></div>
+      </div>
+      <div class="card"><table class="ledger" id="growTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ===================== RETIREMENT ===================== -->
+  <section class="panel split" data-panel="retire" hidden>
+    <div class="card">
+      <fieldset>
+        <div class="group-title"><h3>Spending &amp; income</h3></div>
+        <label class="check"><input type="checkbox" id="todaysDollars"><span>Amounts below are in today's dollars<br><small class="muted">Inflated to your retirement year automatically</small></span></label>
+        <div class="field"><label for="retSpend">Annual spending (after tax)</label><input type="number" id="retSpend" step="1000"></div>
+        <div class="field"><label for="retHousing">Housing allowance in retirement<small>Tax-free church-plan draws, §107</small></label><input type="number" id="retHousing" step="1000"></div>
+        <div class="field"><label for="ssMin">Minister Social Security<small>0 if exempt via Form 4361</small></label><input type="number" id="ssMin" step="500"></div>
+        <div class="field spouse-only"><label for="ssSp">Spouse Social Security</label><input type="number" id="ssSp" step="500"></div>
+        <div class="field"><label for="pension">Pension / other income</label><input type="number" id="pension" step="500"></div>
+        <label class="check"><input type="checkbox" id="pensionCOLA"><span>Pension has a cost-of-living raise</span></label>
+        <div class="group-title"><h3>Market</h3></div>
+        <div class="field"><label for="retYears">Years in retirement</label><input type="number" id="retYears" step="1"></div>
+        <div class="field"><label for="retReturn">Mean return (%)</label><input type="number" id="retReturn" step="0.1"></div>
+        <div class="field"><label for="retVol">Volatility (%)</label><input type="number" id="retVol" step="0.5"></div>
+        <div class="field"><label for="inflation">Inflation (%)</label><input type="number" id="inflation" step="0.1"></div>
+        <div class="field"><label for="dist">Return distribution</label><select id="dist"><option value="normal">Normal</option><option value="t5">Fat-tailed (t, 5 df)</option></select></div>
+        <div class="field"><label for="brokTaxDrag">Brokerage tax drag (% of gains)</label><input type="number" id="brokTaxDrag" step="1"></div>
+        <div class="group-title"><h3>Strategy</h3></div>
+        <div class="field"><label for="drawOrder">After housing draws, spend</label><select id="drawOrder"><option value="roth-first">Roth first (V13 order)</option><option value="trad-first">Traditional first</option></select></div>
+        <label class="check"><input type="checkbox" id="convOn"><span>Roth conversions until RMD age<br><small class="muted">Converts non-church Traditional money</small></span></label>
+        <div class="field"><label for="convBracket">Fill up to bracket</label><select id="convBracket"><option value="0.12">12%</option><option value="0.22">22%</option><option value="0.24">24%</option></select></div>
+        <label class="check spouse-only"><input type="checkbox" id="survivorOn"><span>Survivor scenario<br><small class="muted">Housing exclusion ends; filing status becomes Single</small></span></label>
+        <div class="field spouse-only"><label for="survivorYear">Minister passes in retirement year</label><input type="number" id="survivorYear" step="1"></div>
+        <div class="field spouse-only"><label for="survivorSpendPct">Survivor spending (% of couple)</label><input type="number" id="survivorSpendPct" step="5"></div>
+        <label class="check"><input type="checkbox" id="seniorExtended"><span>Assume the $6,000 senior deduction is extended past 2028</span></label>
+      </fieldset>
+    </div>
+    <div class="stack">
+      <div class="kpis" id="retKpis"></div>
+      <div class="card">
+        <div class="card-h"><h2>Year 1 of retirement</h2><span class="muted small" id="y1Label"></span></div>
+        <div class="flow" id="y1Flow"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Portfolio by bucket</h2><span class="muted small">Static path, nominal</span></div>
+        <div class="chartbox"><canvas id="chRet" aria-label="Retirement balances by bucket"></canvas></div>
+        <div class="legend" id="lgRet"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Lifetime taxes by source</h2><span class="muted small" id="taxTotalLbl"></span></div>
+        <div class="chartbox"><canvas id="chTax" aria-label="Taxes by source per year"></canvas></div>
+        <div class="legend" id="lgTax"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Monte Carlo range</h2><span class="muted small">1,000 trials · total portfolio</span></div>
+        <div class="chartbox"><canvas id="chFan" aria-label="Monte Carlo percentile fan"></canvas></div>
+        <div class="legend" id="lgFan"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== YEAR BY YEAR ===================== -->
+  <section class="panel" data-panel="years" hidden>
+    <div class="card">
+      <div class="card-h"><h2>Year-by-year (static path)</h2>
+        <div class="row"><button class="btn" id="btnCsv">Download CSV</button></div></div>
+      <p class="note">Nominal dollars. "Housing-free" is the church-plan money excluded under §107; "Taxable trad" is every other Traditional dollar, RMDs included.</p>
+      <div class="tscroll"><table class="ledger" id="yearTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ===================== SCENARIOS ===================== -->
+  <section class="panel" data-panel="scen" hidden>
+    <div class="card">
+      <div class="card-h"><h2>Saved scenarios</h2><span class="muted small" id="scenWhere">Saved in this browser only</span></div>
+      <div class="row">
+        <input class="text-input" id="scenName" placeholder="Name this scenario (e.g. Max Roth)" aria-label="Scenario name">
+        <button class="btn primary" id="btnSave">Save current</button>
+        <button class="btn" id="btnExport">Export all (JSON)</button>
+        <button class="btn" id="btnImport">Import JSON</button>
+        <input type="file" id="fileImport" accept="application/json,.json" class="hidden-file" aria-label="Import scenarios file">
+      </div>
+      <p class="note" id="scenMsg"></p>
+    </div>
+    <div class="scen" id="scenGrid"></div>
+  </section>
+
+  <!-- ===================== AI AUDIT ===================== -->
+  <section class="panel" data-panel="audit" hidden>
+    <div class="card">
+      <div class="card-h"><h2>AI strategic audit</h2><span class="muted small">Bring your own AI</span></div>
+      <p class="note">The audit prompt is filled in with your current numbers (no names). Use it with any AI you already have. Nothing is sent anywhere until you choose to.</p>
+    </div>
+    <div class="scen">
+      <div class="card" style="display:grid;gap:10px;align-content:start">
+        <h3>Use the AI you already have</h3>
+        <p class="note">Copy the prompt, then paste it into a new chat.</p>
+        <div class="row"><button class="btn primary" id="btnCopyPrompt" type="button">Copy audit prompt</button><span class="small muted" id="copyMsg" aria-live="polite"></span></div>
+        <div class="row small">
+          <a href="https://chatgpt.com/" target="_blank" rel="noopener">Open ChatGPT</a>
+          <a href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a>
+          <a href="https://gemini.google.com/app" target="_blank" rel="noopener">Open Gemini</a>
+          <a href="https://copilot.microsoft.com/" target="_blank" rel="noopener">Open Copilot</a>
+        </div>
+        <details><summary class="small">Show the prompt</summary><textarea id="promptBox" readonly rows="12" style="width:100%;margin-top:8px;font:12px/1.4 var(--f-mono);background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px" aria-label="Audit prompt"></textarea></details>
+      </div>
+      <div class="card" style="display:grid;gap:10px;align-content:start">
+        <h3>Or run it here with your own API key</h3>
+        <p class="note">Your key goes straight from this browser to the provider you pick. It is never sent to this site or saved to your account.</p>
+        <div class="field wide"><label for="aiProvider">Provider</label><select id="aiProvider"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI (ChatGPT)</option><option value="gemini">Google (Gemini)</option></select></div>
+        <div class="field wide"><label for="aiKey">API key</label><input id="aiKey" type="password" autocomplete="off" spellcheck="false" style="font:inherit;font-family:var(--f-mono);font-size:.85rem;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);width:100%"></div>
+        <label class="check"><input type="checkbox" id="aiRemember"><span>Remember this key on this device</span></label>
+        <div class="field wide"><label for="aiModel">Model</label><select id="aiModel"><option value="">Load models first</option></select></div>
+        <div class="row"><button class="btn" id="btnModels" type="button">Load models</button><button class="btn primary" id="btnRunAI" type="button" disabled>Run audit</button><button class="btn" id="btnStopAI" type="button" hidden>Stop</button></div>
+        <p class="small muted" id="aiMsg" aria-live="polite"></p>
+      </div>
+    </div>
+    <div class="card"><div class="audit" id="auditOut" aria-live="polite"><p class="muted">Results from "Run audit" appear here.</p></div></div>
+  </section>
+
+  <!-- ===================== ACCOUNT ===================== -->
+  <section class="panel" data-panel="account" hidden>
+    <div class="card" id="acctCard" style="display:grid;gap:12px;max-width:640px">
+      <div class="card-h" style="margin:0"><h2>My account</h2><span class="muted small" id="acctState"></span></div>
+      <div id="acctBody"><p class="muted">Loading…</p></div>
+      <p class="small muted" id="acctMsg" aria-live="polite"></p>
+    </div>
+    <div class="card" style="max-width:640px">
+      <h3 style="margin-bottom:6px">How your data is protected</h3>
+      <ul class="note" style="padding-left:18px;display:grid;gap:4px;margin:0">
+        <li>Without an account, everything stays in this browser.</li>
+        <li>With an account, each saved scenario is locked in your browser with your vault passphrase (AES-256) before it is sent. The server only stores scrambled text it cannot read.</li>
+        <li>The database also only lets you reach your own rows.</li>
+        <li>Your vault passphrase is never sent anywhere. If you forget it, your saved scenarios cannot be recovered.</li>
+        <li>On a shared computer, use "Clear this device" when you finish.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== ASSUMPTIONS ===================== -->
+  <section class="panel split" data-panel="rules" hidden>
+    <div class="card">
+      <h3 style="margin-bottom:10px">Tax law settings (2026)</h3>
+      <fieldset id="taxFields"></fieldset>
+      <div class="row" style="margin-top:12px"><button class="btn" id="btnTaxReset">Reset to 2026 law</button></div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <h2 style="margin-bottom:8px">What this model assumes</h2>
+        <ul class="note" id="assumptions" style="max-width:none;padding-left:18px;display:grid;gap:6px"></ul>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Self-tests</h2><button class="btn" id="btnTests">Run self-tests</button></div>
+        <div class="tests" id="testOut"><span class="muted">Hand-computed cases for SECA, FICA, brackets, Social Security taxability, RMDs, limits, Massachusetts tax and the drawdown solver.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Free, open-source educational planning model, not tax or investment advice. Figures use 2026 federal law (Rev. Proc. 2025-32, OBBBA), SSA's 2026 wage base, SECURE 2.0 and Massachusetts rules; future brackets are indexed by your inflation input. Confirm housing designations and plan eligibility with your church plan administrator and a tax professional.</footer>
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+<script src="account.js"></script>
+<script src="ai.js"></script>
+</body>
+</html>

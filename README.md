@@ -1,0 +1,28 @@
+# Minister Tax & Wealth Engine
+
+A free planner for ministers: housing allowance (IRC §107), dual-status SECA, 403(b) and Roth choices, RMDs, Roth conversions, survivor scenarios and Monte Carlo, on 2026 federal and Massachusetts tax law.
+
+- Runs entirely in the browser. No server code.
+- Optional accounts (Supabase). Saved scenarios are encrypted in the browser with a vault passphrase before upload; the database stores only ciphertext and row-level security limits each person to their own rows.
+- AI audit uses the visitor's own AI: copy the prompt into any chat app, or paste their own Anthropic / OpenAI / Gemini API key (sent only to that provider, never to this site).
+- `engine.js` holds all tax math and 28 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
+
+## One-time setup
+
+1. **Supabase** (free): create a project at supabase.com.
+   - SQL Editor → New query → paste `supabase/setup.sql` → Run.
+   - Authentication → Sign In / Providers → Email: turn **off** "Confirm email". (The free built-in email service only sends to your own team, so confirmation emails would not reach other people.)
+   - Authentication → URL Configuration: set Site URL to `https://wasthatahubofgit.github.io/minister-tax-engine/`.
+   - Project Settings → API Keys: copy the Project URL and the publishable (or legacy anon) key into `config.js`.
+2. **GitHub Pages**: repo Settings → Pages → Source: "Deploy from a branch", branch `main`, folder `/ (root)` → Save.
+3. **Keep-awake**: the "Keep Supabase awake" workflow pings the database twice a week so the free project is not paused. It starts automatically once `config.js` is filled in.
+
+## Each January
+
+Update the `TAX` block at the top of `engine.js` (brackets, standard deduction, wage base, contribution limits, Massachusetts surtax threshold), then adjust the matching expected values in `selfTests()`.
+
+## Password resets
+
+Supabase's free email service can't send reset emails to other people. To reset someone's login, open Supabase → Authentication → Users and update or delete the user. Their vault passphrase is separate: nobody, including the administrator, can recover scenarios if that is lost.
+
+Educational planning model, not tax or investment advice.
