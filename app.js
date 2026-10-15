@@ -21,6 +21,7 @@ const FIELDS = {
   miscTradBal:15000, miscRothBal:0, brokerageBal:0, brokContrib:0, cashBal:5000, cashContrib:0, cashRate:{v:3,pct:1},
   whMinFed:0, whMinState:0, whSpFed:0, whSpState:0, estQuarterly:0, lastYearTax:0,
   otherSEIncome:0, otherSEExpenses:0, mortgageInterest:0, bal529:0, contrib529:0, kids529:1, yrsToCollege:10, limit529:0,
+  kidsUnder17:0, otherDeps:0, acaMarket:{v:false,bool:1}, acaSubsidy:0,
   pensionStartAge:0, pensionSurvivorPct:{v:50,pct:1}, pensionHousing:{v:true,bool:1},
   todaysDollars:{v:true,bool:1}, retSpend:120000, retHousing:40000, ssMin:27000, ssSp:18000, pension:0,
   pensionCOLA:{v:false,bool:1}, retYears:30, retReturn:{v:5,pct:1}, retVol:{v:12,pct:1}, inflation:{v:2.5,pct:1},
@@ -211,7 +212,7 @@ function renderToday(r){
   const row = (l, a, b, neg0) => { const neg = neg0 && (a + b) >= 0.5; return `<tr><td>${l}</td><td class="r ${neg?'neg':''}">${neg?'−':''}${fmt(a)}</td>${mfj?`<td class="r ${neg?'neg':''}">${neg?'−':''}${fmt(b)}</td>`:''}<td class="r ${neg?'neg':''}">${neg?'−':''}${fmt(a+b)}</td></tr>`; };
   $('cashTable').innerHTML = `<tr><th></th><th class="r">Minister</th>${mfj?'<th class="r">Spouse</th>':''}<th class="r">Total</th></tr>` +
     row('Gross pay', mi.gross, sp.gross) + row('Payroll tax (SECA / FICA)', mi.payroll, sp.payroll, 1) +
-    row('Income tax (fed + MA)', mi.incomeTax, sp.incomeTax, 1) + row('Pre-tax savings', mi.preTax, sp.preTax, 1) +
+    row(`Income tax (fed + ${esc(E.TAX.state.code)})`, mi.incomeTax, sp.incomeTax, 1) + row('Pre-tax savings', mi.preTax, sp.preTax, 1) +
     row('Roth savings', mi.roth, sp.roth, 1) +
     `<tr class="total"><td>Take-home</td><td class="r">${fmt(mi.net)}</td>${mfj?`<td class="r">${fmt(sp.net)}</td>`:''}<td class="r">${fmt(t.takeHome)}</td></tr>` +
     `<tr><td>Cash &amp; brokerage saving</td>${mfj?'<td></td>':''}<td></td><td class="r ${t.otherSaving>=0.5?'neg':''}">${t.otherSaving>=0.5?'−':''}${fmt(t.otherSaving)}</td></tr>` +

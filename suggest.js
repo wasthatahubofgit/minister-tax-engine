@@ -98,12 +98,56 @@ function rules(r){
   if (r.mc.successRate < 0.75 && p.yearsToRetire > 0) add('lowsuccess', 'act', 'Your retirement plan may run short',
     `In ${A.pctf(r.mc.successRate)} of simulated markets the money lasts. Small changes now have the biggest effect.`,
     `Each extra ${fmt(100)}/mo saved adds about ${fmt(realIncomeFrom(100, r))}/mo of retirement income. Retiring a little later or planning to spend a little less also helps.`, 'retire', 'montecarlo', { score: 3000 * (1 - r.mc.successRate) });
-  const fedM = t.marginalFed, pre = p.minPreTax + (mfj ? p.spPreTax : 0), roth = p.minRoth403b + p.minRothIRA + (mfj ? p.spRoth401k + p.spRothIRA : 0);
-  if (fedM <= 0.12 && pre > 0) add('rothlow', 'consider', 'At your tax bracket, Roth saving may be the better deal',
-    `Pre-tax saving only saves ${Math.round(mr * 100)}% now, and withdrawals may be taxed at a similar or higher rate later.`,
-    'One exception: church-plan pre-tax money may come out tax-free later as housing allowance. Many ministers split between the two.', 'pay', 'roth', { score: pre * 0.03 });
-  if (fedM >= 0.24 && roth > 0) add('prehigh', 'consider', 'In a 24%+ bracket, pre-tax saving may save more now',
-    `Each $1,000 moved from Roth to pre-tax lowers this year's tax by about ${fmt(1000 * mr)}.`, 'Weigh that against tax-free growth and no required distributions with Roth.', 'pay', 'pretax', { score: roth * 0.03 });
+  // Pre-tax vs Roth: compares the full tax saved now (incl. self-employment tax on the minister's
+  // own 403(b), and credits) with the expected tax rate when the money comes out.
+  const rr = A.retRate ? A.retRate(r) : null;
+  if (rr) {
+    const ms = p.minComp > 0 ? E.bestSplit(p, 'min', rr.minTotal) : null;
+    if (ms && ms.pre - ms.cur >= 1000 && ms.gain >= 100) add('minpre', 'consider', `Consider moving ${fmt(ms.pre - ms.cur)} of your 403(b) from Roth to pre-tax`,
+      "Pre-tax 403(b) dollars skip self-employment tax as well as income tax; Roth dollars pay both. Church-plan pre-tax money may also come out tax-free later as housing allowance.",
+      `Worth about ${fmt(ms.gain)} a year over the long run, compared with your expected tax rate in retirement. See "Pre-tax or Roth?" for the details.`, 'pay', 'pretax', { score: ms.gain });
+    else if (ms && ms.cur - ms.pre >= 1000 && ms.gain >= 100) add('minroth', 'learn', `Roth may suit part of your 403(b)`,
+      'Even counting the self-employment tax pre-tax saving avoids, your tax rate now is below what you expect in retirement.',
+      `Moving ${fmt(ms.cur - ms.pre)} to Roth is worth about ${fmt(ms.gain)} a year over the long run, if that expectation holds.`, 'pay', 'roth', { score: ms.gain / 2 });
+    const ss = mfj && p.spGross > 0 ? E.bestSplit(p, 'sp', rr.total) : null;
+    if (ss && Math.abs(ss.pre - ss.cur) >= 1000 && ss.gain >= 100) {
+      const toRoth = ss.pre < ss.cur;
+      add('spsplit', 'consider', toRoth ? `Your spouse could shift ${fmt(ss.cur - ss.pre)} of plan saving to Roth` : `Your spouse could shift ${fmt(ss.pre - ss.cur)} of plan saving to pre-tax`,
+        toRoth ? "Past a point, a pre-tax dollar in your spouse's plan saves less tax now than it will likely cost in retirement." : "Pre-tax saving in your spouse's plan comes off income taxed at a higher rate than you expect in retirement.",
+        `Suggested: ${fmt(ss.pre)} pre-tax and ${fmt(ss.roth)} Roth, worth about ${fmt(ss.gain)} a year over the long run. Only if the plan offers Roth.`, 'pay', toRoth ? 'roth' : 'pretax', { score: ss.gain });
+    }
+  }
+
+  // ---- Thresholds near you
+  const th = E.thresholds(p).list, qMax = (mfj ? 2 : 1) * E.TAX.credits.saver.maxPer;
+  th.forEach(o => {
+    if (o.id.startsWith('saver') && o.above && o.back && o.cost >= 100) add('th-saver', 'act', `A little more pre-tax saving could raise your Saver's Credit`,
+      `Your adjusted gross income is ${fmt(o.gap)} over a Saver's Credit line, where the credit rate drops all at once.`,
+      `About ${fmt(o.back.amount)} more pre-tax saving brings you under it and adds about ${fmt(o.cost)} of credit, on top of the tax the saving itself saves.`, 'pay', 'saverscredit', { score: o.cost });
+    if (o.id === 'aca') {
+      if (!o.above && o.gap < 5000) add('th-aca', 'act', `You're ${fmt(o.gap)} below the Marketplace subsidy cliff`,
+        'Above 400% of the poverty line, help with Marketplace premiums ends completely in 2026. A raise, honoraria or a bonus could push you over.',
+        `${o.cost > 0 ? `That would cost your ${fmt(o.cost)} premium tax credit. ` : ''}If extra income comes, more pre-tax saving can keep you under. Report income changes to the Marketplace.`, 'pay', 'aca', { score: 5000 + (o.cost || 0) });
+      else if (o.above && o.back) add('th-aca', 'act', 'Pre-tax saving could bring back Marketplace subsidies',
+        `Your income is ${fmt(o.gap)} over the 400% poverty-line cliff, so you get no help with Marketplace premiums.`,
+        `About ${fmt(o.back.amount)} more pre-tax saving brings you under it. Check the subsidy you would get at healthcare.gov.`, 'pay', 'aca', { score: 4000 });
+    }
+    if ((o.id === 'ctc' || o.id === 'senior' || o.id === 'rothira') && o.above && o.back && o.back.amount <= 8000)
+      add('th-' + o.id, 'consider', `More pre-tax saving would get you under the ${o.id === 'ctc' ? 'child tax credit' : o.id === 'senior' ? 'senior deduction' : 'Roth IRA'} limit`,
+        `You're ${fmt(o.gap)} over. ${o.effect}`, `About ${fmt(o.back.amount)} more pre-tax saving gets you back under.`, 'pay', o.term, { score: 150 });
+    if (o.id === 'ltcg0') add('ltcg0', 'learn', 'Room to take investment gains at 0%',
+      `Your taxable income is ${fmt(o.gap)} below the 0% capital gains ceiling.`, 'Selling investments held over a year with gains up to that amount would owe no federal tax on the gain.', 'pay', 'ltcg0', { score: 60 });
+  });
+  const sRate = E.saverRate(t.minScenario.agi, p.status), qual = t.minScenario.fed.credits ? t.minScenario.fed.credits.saverQual : 0;
+  if (sRate > 0 && qual < qMax) {
+    const fill = { minRothIRA: p.minRothIRA + Math.max(0, E.TAX.credits.saver.maxPer - (p.minPreTax + p.minRoth403b + p.minRothIRA)) };
+    if (mfj) fill.spRothIRA = p.spRothIRA + Math.max(0, E.TAX.credits.saver.maxPer - (p.spPreTax + p.spRoth401k + p.spRothIRA));
+    const t2 = E.computeToday(Object.assign({}, p, fill, { _fast: true })), gain = E.householdTax(t) - E.householdTax(t2);
+    const more = (fill.minRothIRA - p.minRothIRA) + ((fill.spRothIRA || p.spRothIRA) - p.spRothIRA);
+    if (gain >= 100) add('saveropp', 'consider', "You may qualify for the Saver's Credit",
+      `At your income the IRS adds a credit of ${Math.round(sRate * 100)}% of what you save for retirement, up to $2,000 a person. Your housing allowance isn't counted in this income, so many ministers qualify.`,
+      `Saving ${fmt(more)} more this year (any 403(b), 401(k) or IRA) could bring about ${fmt(gain)} back as a credit.`, 'pay', 'saverscredit', { score: gain });
+  }
   const ages = [p.minAge].concat(mfj ? [p.spAge] : []);
   if (ages.some(x => x >= 50) && p.minPreTax + p.minRoth403b >= E.TAX.limits.deferral) add('catchup', 'consider', 'You can save more with catch-up contributions',
     `From age 50 you may add ${fmt(E.TAX.limits.catch50)} more a year (${fmt(E.TAX.limits.catch6063)} at ages 60–63).`, 'Ask your plan provider to raise your contribution.', 'pay', 'catchup', { score: 500 });
@@ -182,5 +226,6 @@ document.addEventListener('click', e => {
   }
 });
 A.renderSuggestions = render;
+A.refreshSuggestions = () => { const el = $('hc-suggest'); if (el) render(el); };
 A.suggestions = () => { const r = A.getLast(); return r ? rules(r) : []; };
 })();

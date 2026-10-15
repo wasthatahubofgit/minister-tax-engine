@@ -48,6 +48,8 @@ const CARDS = {
     const t = r.today;
     return mini([['Income tax saved', fmt(t.shield), 'good'], ['Extra payroll tax', fmt(t.extraPayroll), 'bad'], ['Net per year', (t.netAdvantage >= 0 ? '+' : '−') + fmt(Math.abs(t.netAdvantage)), t.netAdvantage >= 0 ? 'good' : 'bad']]) +
       `<p class="small" style="margin:0">Compared with the same pay as an ordinary employee. ${T('dualstatus', 'Dual tax status')} · ${T('seca', 'Self-employment tax')}</p>`; } },
+  nextdollar: { title: 'Where your next dollar is taxed', render: r => A.nextDollarHtml(r, true) },
+  thresholds: { title: 'Thresholds near you', render: r => A.thresholdsHtml(r, true) },
   reflect: { title: 'Reflection', render: () => {
     const q = A.QUOTES[Math.floor(Date.now() / 86400000) % A.QUOTES.length], calling = A.store.get('mtw.calling', '');
     return `<blockquote class="wz-quote" style="font-size:1rem">${esc(q)}</blockquote>${calling ? `<p class="small muted" style="margin:0">You wrote: "${esc(calling)}"</p>` : ''}

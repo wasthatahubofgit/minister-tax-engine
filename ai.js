@@ -36,6 +36,10 @@ function situation(){
 - Take-home pay about ${fmt(t.householdNet / 12)}/mo. Self-employment tax ${fmt(t.seca.total)}/yr. Net effect of minister tax rules vs an ordinary employee: ${fmt(t.netAdvantage)}/yr
 - Retirement in ${Y} years; savings then about ${fmt(A.FIGURES.atRet.v(r))} in today's dollars, enough for about ${fmt(A.retIncomeMo(r))}/mo for ${Math.round(p.retYears)} years (today's dollars, before tax), plus Social Security of about ${fmt((p.ssMin + (mfj ? p.ssSp : 0)) / 12)}/mo
 - Hoped-for retirement spending ${fmt(p.retSpend / 12)}/mo${p.todaysDollars ? " in today's dollars" : ''}${p.pension > 0 ? `\n- Expected pension ${fmt(p.pension / 12)}/mo${p.pensionHousing ? ' (church plan; can be designated housing allowance)' : ''}` : ''}${t.otherNet > 0 ? `\n- Other income (speaking, honoraria) about ${fmt(t.otherNet)}/yr` : ''}${p.contrib529 > 0 ? `\n- Saving ${fmt(p.contrib529 / 12)}/mo for children's college (529)` : ''}${A.budgetSumOf ? `\n- Giving about ${fmt(A.budgetSumOf('giving'))}/mo` : ''}
+- ${(() => { try { const nd = E.nextDollar(p), L = k => nd.lines.find(x => x.key === k), c = L('church'), mp = L('minPre'), sp = L('spPre');
+    const th = E.thresholds(p).list.slice(0, 3).map(o => `${o.name} (${o.above ? fmt(o.gap) + ' above' : fmt(o.gap) + ' below'})`);
+    return `True tax rate on the next $1,000: church salary ${A.pctf(c ? c.rate : 0)} (bracket ${A.pctf(t.marginalFed)}, plus state and self-employment tax)${mp ? `; a pre-tax 403(b) dollar saves ${A.pctf(mp.rate)}` : ''}${sp ? `; a spouse pre-tax dollar saves ${A.pctf(sp.rate)}` : ''}${(p.kidsUnder17 || 0) > 0 ? `. ${p.kidsUnder17} child(ren) under 17` : ''}${p.acaMarket ? `. Buys Marketplace health insurance${p.acaSubsidy > 0 ? ` with a ${fmt(p.acaSubsidy)}/yr premium tax credit` : ''}` : ''}${th.length ? `
+- Tax thresholds near us: ${th.join('; ')}` : ''}`; } catch (e) { return ''; } })()}
 - Chance the money lasts (1,000 simulated markets): ${A.pctf(r.mc.successRate)}. Lifetime retirement taxes ${fmt(r.ret.totalTax)}. Expected legacy ${fmt(A.FIGURES.legacy.v(r))} in today's dollars${calling ? `\n- What I sense I'm called to now: "${calling}"` : ''}`;
 }
 

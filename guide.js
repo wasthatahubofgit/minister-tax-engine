@@ -88,8 +88,9 @@ const STEPS = [
         <button class="btn ${draft.__status === 'Single' ? 'primary' : ''}" type="button" data-status="Single" aria-pressed="${draft.__status === 'Single'}">Single</button>
       </div>
       ${wf('minAge', 'Your age (the minister)', { min: 22, max: 80, step: 1, unit: '', per: 'yrs' })}
-      ${draft.__status === 'MFJ' ? wf('spAge', "Your spouse's age", { min: 22, max: 80, step: 1, unit: '', per: 'yrs' }) : ''}`,
-    save: () => { draft.minAge = num('minAge'); if (draft.__status === 'MFJ') draft.spAge = num('spAge'); } },
+      ${draft.__status === 'MFJ' ? wf('spAge', "Your spouse's age", { min: 22, max: 80, step: 1, unit: '', per: 'yrs' }) : ''}
+      ${wf('kidsUnder17', 'Children under 17', { min: 0, max: 8, step: 1, unit: '', per: 'kids', help: 'Each one can lower your federal tax by up to $2,200.' })}`,
+    save: () => { draft.minAge = num('minAge'); if (draft.__status === 'MFJ') draft.spAge = num('spAge'); draft.kidsUnder17 = num('kidsUnder17'); } },
   { id: 'state', title: 'Which state do you live in?', body: () => `
       <div class="wz-field"><label for="wzState">State</label><select id="wzState">${E.STATES.map(([c, n]) => `<option value="${c}" ${c === draft.state ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
       <div id="wzStateMore"></div>`,

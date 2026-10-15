@@ -47,6 +47,19 @@ const TAX = {
     persExempt: { MFJ: 8800, Single: 4400 }, age65Exempt: 700, payrollDedCap: 2000,
     ssExempt: true, conformsTo107: true, code: 'MA', mode: 'full'
   },
+  // Credits. Saver's Credit (§25B) AGI tiers for 2026: IRS Notice 2025-67 (replaced by the Saver's Match from 2027).
+  // Child tax credit (§24, OBBBA): $2,200/child under 17, $1,700 refundable, $500 other dependents,
+  // reduced $50 per $1,000 (or part) of MAGI over $400k MFJ / $200k other.
+  credits: {
+    saver: { maxPer: 2000, tiers: { MFJ: [[48000, .5], [52000, .2], [80500, .1]], Single: [[24250, .5], [26250, .2], [40250, .1]] } },
+    ctc: { perChild: 2200, refundMax: 1700, otherDep: 500, phaseStart: { MFJ: 400000, Single: 200000 } }
+  },
+  // Other thresholds shown in "Thresholds near you" (2026)
+  ltcg0Top: { MFJ: 98900, Single: 49450 },                 // 0% long-term capital gains ceiling (taxable income)
+  niit: { rate: 0.038, thresh: { MFJ: 250000, Single: 200000 } },   // §1411, not indexed
+  aca: { fpl: 15650, fplAdd: 5500, fplAK: [19550, 6880], fplHI: [17990, 6330], cliff: 4,  // 2025 FPL, used for 2026 coverage
+         // 2026 applicable percentages (Rev. Proc. 2025-25), [FPL multiple, % of income], linear between points
+         ap: [[0, 0.021], [1.33, 0.021], [1.33, 0.0314], [1.5, 0.0419], [2, 0.066], [2.5, 0.0844], [3, 0.0996], [4, 0.0996]] },
   rmd: {
     72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,80:20.2,
     81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,86:15.2,87:14.4,88:13.7,89:12.9,
@@ -167,6 +180,30 @@ function taxableSS(ss, otherIncome, status, cfg = TAX) {
   return Math.min(0.85 * ss, 0.85 * (pi - b2) + Math.min(0.5 * ss, 0.5 * (b2 - b1)));
 }
 
+// Federal credits applied in the "today" calculation. Saver's Credit first, then the child
+// tax credit (nonrefundable up to remaining tax, then refundable up to $1,700/child and 15% of
+// earned income over $2,500). Returns the total that reduces federal income tax (may exceed it).
+function saverRate(agi, status, cfg = TAX) {
+  const t = cfg.credits.saver.tiers[status];
+  for (const [top, rate] of t) if (agi <= top) return rate;
+  return 0;
+}
+function fedCredits(agi, taxBefore, p, earned, cfg = TAX) {
+  const mfj = p.status === 'MFJ', C = cfg.credits;
+  const n = v => (+v || 0);
+  const qMin = n(p.minPreTax) + n(p.minRoth403b) + n(p.minRothIRA);
+  const qSp = mfj ? n(p.spPreTax) + n(p.spRoth401k) + n(p.spRothIRA) : 0;
+  const sRate = saverRate(agi, p.status, cfg);
+  const saverQual = Math.min(qMin, C.saver.maxPer) + Math.min(qSp, C.saver.maxPer);
+  const saver = Math.min(sRate * saverQual, clamp0(taxBefore));
+  const kids = Math.max(0, Math.round(n(p.kidsUnder17))), deps = Math.max(0, Math.round(n(p.otherDeps)));
+  const ctcFull = kids * C.ctc.perChild + deps * C.ctc.otherDep;
+  const ctcAfter = clamp0(ctcFull - 50 * Math.ceil(clamp0(agi - C.ctc.phaseStart[p.status]) / 1000));
+  const ctcNonref = Math.min(ctcAfter, clamp0(taxBefore - saver));
+  const refundable = Math.min(ctcAfter - ctcNonref, kids * C.ctc.refundMax, 0.15 * clamp0(earned - 2500));
+  return { saver, saverRate: sRate, saverQual, ctc: ctcNonref + clamp0(refundable), refundable: clamp0(refundable), ctcFull, total: saver + ctcNonref + clamp0(refundable) };
+}
+
 /* ---------------- Payroll / SE ---------------- */
 
 // Minister SECA (IRC §1401/§1402). Housing allowance IS in the SE base (§1402(a)(8));
@@ -249,6 +286,13 @@ function computeToday(p, cfg = TAX) {
   const c529 = p.contrib529 || 0;
   const edu = state529(cfg.state.code, st, c529, p.kids529, p.limit529);
   const st529 = (inc, payDed) => clamp0(stateTax(clamp0(inc - edu.ded), st, ages, payDed, 1, cfg) - edu.credit);
+  const earned = p.minComp + otherNet + spGross;
+  // Federal income tax after the Saver's Credit and child tax credit
+  const fedAfter = agi => {
+    const f = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg, giveDed);
+    const cr = fedCredits(agi, f.tax, p, earned, cfg);
+    return Object.assign(f, { beforeCredits: f.tax, credits: cr, tax: f.tax - cr.total });
+  };
 
   function ministerScenario(excl) {
     const addlMed = additionalMedicare(seca.seEarn + spGross, st, cfg);
@@ -256,7 +300,7 @@ function computeToday(p, cfg = TAX) {
     const minAGIpart = clamp0(p.minComp - excl - p.minPreTax - seDed + otherNet);
     const spAGIpart = clamp0(spGross - spPre);
     const agi = minAGIpart + spAGIpart;
-    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg, giveDed);
+    const fed = fedAfter(agi);
     const stInc = clamp0(p.minComp - (cfg.state.conformsTo107 ? excl : 0) - p.minPreTax + otherNet) + spAGIpart;
     const stPayroll = Math.min(cfg.state.payrollDedCap, seca.total) + (mfj ? Math.min(cfg.state.payrollDedCap, spFICA) : 0);
     const stTax = st529(stInc, stPayroll);
@@ -266,7 +310,7 @@ function computeToday(p, cfg = TAX) {
     const minFICA = employeeFICA(p.minComp, cfg);
     const addlMed = additionalMedicare(p.minComp + otherNet * cfg.seFactor + spGross, st, cfg);
     const agi = clamp0(p.minComp - p.minPreTax) + clamp0(otherNet - otherSECA / 2) + clamp0(spGross - spPre);
-    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg, giveDed);
+    const fed = fedAfter(agi);
     const stPayroll = Math.min(cfg.state.payrollDedCap, minFICA + otherSECA) + (mfj ? Math.min(cfg.state.payrollDedCap, spFICA) : 0);
     const stTax = st529(agi, stPayroll);
     return { minFICA, addlMed, agi, fed, stTax, incomeTax: fed.tax + stTax };
@@ -285,7 +329,7 @@ function computeToday(p, cfg = TAX) {
   const noSEDed = (() => {
     const m = cur.m;
     const agi = m.agi + m.seDed;
-    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg, giveDed);
+    const fed = fedAfter(agi);
     return fed.tax + m.stTax;
   })();
   const shieldSEDed = noSEDed - cur.m.incomeTax;
@@ -293,7 +337,8 @@ function computeToday(p, cfg = TAX) {
 
   // Break-even housing — binary search (net is monotonic in excl)
   let breakEven;
-  if (net(0).net >= 0) breakEven = 0;
+  if (p._fast) breakEven = null;                       // what-if runs skip the search
+  else if (net(0).net >= 0) breakEven = 0;
   else if (net(p.minComp).net < 0) breakEven = null;
   else {
     let lo = 0, hi = p.minComp;
@@ -347,8 +392,15 @@ function computeToday(p, cfg = TAX) {
   if (housingExcess > 0)
     warnings.push({ field: 'housingDesignated', msg: `${fmt(housingExcess)} of the designated allowance exceeds actual expenses / fair rental value and is taxable income (§107).` });
 
+  // Marketplace subsidy: anchored on the credit entered at the household's own income (p._acaMagi0 in what-ifs)
+  let aca = null;
+  if (p.acaMarket && p.acaSubsidy > 0) {
+    const magi0 = p._acaMagi0 !== undefined ? p._acaMagi0 : m.agi, c = acaCredit(m.agi, magi0, p.acaSubsidy, p, cfg);
+    aca = { ptc: c.ptc, lost: p.acaSubsidy - c.ptc, cliff: c.cliff, magi0 };
+  }
+
   return {
-    excludable, housingExcess, seca, spFICA, w2, minScenario: m,
+    aca, excludable, housingExcess, seca, spFICA, w2, minScenario: m,
     shield: cur.shield, shieldHousing, shieldSEDed, extraPayroll: cur.extraPayroll, netAdvantage: cur.net,
     seDeduction: m.seDed, breakEven, marginalFed: m.fed.marginal, minister, spouse,
     takeHome, otherSaving, householdNet: takeHome - otherSaving, warnings,
@@ -384,6 +436,221 @@ function taxSetAside(m, seca, p, mfj){
     quarterlyNeeded: Math.max(0, (fedDue - 12 * (n(p.whMinFed) + (mfj ? n(p.whSpFed) : 0))) / 4),
     dueDates: EST_DUE_2026
   };
+}
+
+/* =====================================================================
+   MARGINAL VIEW — "Where your next dollar is taxed", "Thresholds near
+   you", and the pre-tax/Roth split. All by finite differences of
+   computeToday, so every rule above (SECA, credits, state, phase-outs)
+   is counted exactly once.
+   ===================================================================== */
+// Every tax the household pays this year (federal after credits, state, SECA, FICA, 0.9%)
+// A smaller Marketplace premium credit counts as tax here (it is settled on the tax return).
+function householdTax(t) {
+  const m = t.minScenario;
+  return m.fed.tax + m.stTax + t.seca.total + m.addlMed + t.spFICA + (t.aca ? t.aca.lost : 0);
+}
+function parts(t) {
+  const m = t.minScenario;
+  const cr = m.fed.credits ? m.fed.credits.total : 0;
+  return { fed: m.fed.tax + cr, cred: -cr, state: m.stTax, payroll: t.seca.total + m.addlMed + t.spFICA, aca: t.aca ? t.aca.lost : 0 };
+}
+// What-if inputs: skip the break-even search and keep the subsidy anchored on today's income.
+function fastP(p, d) {
+  const q = Object.assign({}, p, d || {}, { _fast: true });
+  if (p.acaMarket && p.acaSubsidy > 0 && p._acaMagi0 === undefined) q._acaMagi0 = computeToday(Object.assign({}, p, { _fast: true, acaSubsidy: 0 })).minScenario.agi;
+  return q;
+}
+
+// Tax change per dollar for a change `d` of size `step`, split into federal/state/payroll.
+function deltaRate(p, d, step, cfg = TAX) {
+  const a = computeToday(fastP(p), cfg), b = computeToday(fastP(p, d), cfg);
+  const pa = parts(a), pb = parts(b);
+  const D = k => (pb[k] - pa[k]) / step, fed = D('fed'), cred = D('cred'), state = D('state'), payroll = D('payroll'), aca = D('aca');
+  return { rate: fed + cred + state + payroll + aca, fed, cred, state, payroll, aca };
+}
+
+// Where the household sits in the federal brackets (taxable income).
+function bracketInfo(p, cfg = TAX) {
+  const t = computeToday(fastP(p), cfg), taxable = t.minScenario.fed.taxable, b = cfg.brackets[p.status];
+  let i = 0; while (i < b.length - 1 && taxable > b[i][0]) i++;
+  const lower = i > 0 ? b[i - 1][0] : 0, upper = b[i][0];
+  return { taxable, rate: taxable > 0 ? b[i][1] : 0, lower, upper, roomUp: upper - taxable, roomDown: taxable - lower,
+           rateBelow: i > 0 ? b[i - 1][1] : 0, rateAbove: i < b.length - 1 ? b[i + 1][1] : b[i][1] };
+}
+
+// Room left under the elective-deferral limit (Roth deferrals could be switched to pre-tax).
+function preTaxRoom(p, cfg = TAX) {
+  const mfj = p.status === 'MFJ';
+  return { min: p.minComp > 0 ? clamp0(deferralLimit(p.minAge, cfg) - p.minPreTax) : 0,
+           sp: mfj && p.spGross > 0 ? clamp0(Math.min(deferralLimit(p.spAge, cfg), p.spGross) - p.spPreTax) : 0 };
+}
+// Extra pre-tax saving (minister's plan first, since it also skips SE tax; then spouse's)
+// needed so that measure(t) <= target. Returns { amount, min, sp } or null if out of reach.
+function preTaxToReach(p, measure, target, cfg = TAX) {
+  const room = preTaxRoom(p, cfg), at = (x) => {
+    const xm = Math.min(x, room.min), xs = x - xm;
+    const q = { minPreTax: p.minPreTax + xm, minRoth403b: clamp0(p.minRoth403b - Math.max(0, p.minPreTax + xm + p.minRoth403b - deferralLimit(p.minAge, cfg))),
+                spPreTax: p.spPreTax + xs, spRoth401k: clamp0(p.spRoth401k - Math.max(0, p.spPreTax + xs + p.spRoth401k - deferralLimit(p.spAge, cfg))) };
+    return { v: measure(computeToday(fastP(p, q), cfg)), xm, xs };
+  };
+  if (at(0).v <= target) return { amount: 0, min: 0, sp: 0 };
+  const max = room.min + room.sp;
+  if (max <= 0 || at(max).v > target) return null;
+  let lo = 0, hi = max;
+  for (let k = 0; k < 40; k++) { const mid = (lo + hi) / 2; if (at(mid).v <= target) hi = mid; else lo = mid; }
+  const r = at(Math.ceil(hi / 10) * 10 > max ? max : Math.ceil(hi / 10) * 10);
+  return { amount: r.xm + r.xs, min: r.xm, sp: r.xs };
+}
+
+// One line per kind of money: what the next $1,000 earned costs, or saved/shifted saves.
+function nextDollar(p, cfg = TAX) {
+  const mfj = p.status === 'MFJ', step = 1000, out = [];
+  const room = preTaxRoom(p, cfg);
+  if (p.minComp > 0) out.push(Object.assign({ key: 'church', label: 'Church salary', kind: 'earn' }, deltaRate(p, { minComp: p.minComp + step }, step, cfg)));
+  out.push(Object.assign({ key: 'side', label: 'Speaking and honoraria', kind: 'earn' },
+    deltaRate(p, { otherSEIncome: (p.otherSEIncome || 0) + step }, step, cfg)));
+  if (mfj && p.spGross > 0) out.push(Object.assign({ key: 'spouse', label: "Spouse's wages", kind: 'earn' }, deltaRate(p, { spGross: p.spGross + step }, step, cfg)));
+  const hRoom = clamp0(Math.min(p.housingActual, p.housingFRV, p.minComp) - p.housingDesignated);
+  if (p.minComp > 0 && hRoom >= 100) { const s = Math.min(step, hRoom);
+    const d = deltaRate(p, { housingDesignated: p.housingDesignated + s }, s, cfg);
+    out.push({ key: 'housing', label: 'Moving salary into housing allowance', kind: 'save', room: hRoom, rate: -d.rate, fed: -d.fed, cred: -d.cred, state: -d.state, payroll: -d.payroll, aca: -d.aca }); }
+  const sv = (key, label, d, roomLeft) => { const r = deltaRate(p, d, step, cfg);
+    out.push({ key, label, kind: 'save', room: roomLeft, rate: -r.rate, fed: -r.fed, cred: -r.cred, state: -r.state, payroll: -r.payroll, aca: -r.aca }); };
+  if (p.minComp > 0) {
+    sv('minPre', 'Your 403(b), pre-tax', { minPreTax: p.minPreTax + step }, room.min);
+    sv('minRoth', 'Your 403(b), Roth', { minRoth403b: p.minRoth403b + step }, clamp0(deferralLimit(p.minAge, cfg) - p.minPreTax - p.minRoth403b));
+  }
+  if (mfj && p.spGross > 0) {
+    sv('spPre', "Spouse's plan, pre-tax", { spPreTax: p.spPreTax + step }, room.sp);
+    sv('spRoth', "Spouse's plan, Roth", { spRoth401k: p.spRoth401k + step }, clamp0(deferralLimit(p.spAge, cfg) - p.spPreTax - p.spRoth401k));
+  }
+  // How far the next pre-tax dollars go before the rate drops a bracket
+  const bi = bracketInfo(p, cfg);
+  let edge = null;
+  if (bi.rate > 0.1 && bi.rate - bi.rateBelow >= 0.05) {
+    const need = preTaxToReach(p, t => t.minScenario.fed.taxable, bi.lower, cfg);
+    edge = { lower: bi.lower, rate: bi.rate, rateBelow: bi.rateBelow, need };
+  }
+  return { lines: out, bracket: bi, edge };
+}
+
+// Thresholds within reach of this household, each with what crossing it costs and the
+// pre-tax saving that would get back under it.
+function fpl(size, code, cfg = TAX) {
+  const a = cfg.aca, [b, add] = code === 'AK' ? a.fplAK : code === 'HI' ? a.fplHI : [a.fpl, a.fplAdd];
+  return b + add * Math.max(0, size - 1);
+}
+// Marketplace premium tax credit (§36B) as income changes, anchored on the credit the person
+// receives now: benchmark = credit + expected contribution at today's income. No credit above 400% FPL (2026).
+function acaApplicable(x, cfg = TAX) {
+  const t = cfg.aca.ap; if (x <= t[0][0]) return t[0][1];
+  for (let i = 1; i < t.length; i++) if (x <= t[i][0]) { const [a, ra] = t[i - 1], [b, rb] = t[i]; return b === a ? rb : ra + (rb - ra) * (x - a) / (b - a); }
+  return t[t.length - 1][1];
+}
+function acaHousehold(p, cfg = TAX) { return (p.status === 'MFJ' ? 2 : 1) + Math.max(0, Math.round(+p.kidsUnder17 || 0)) + Math.max(0, Math.round(+p.otherDeps || 0)); }
+function acaCredit(magi, magi0, credit0, p, cfg = TAX) {
+  const line = fpl(acaHousehold(p, cfg), cfg.state.code, cfg);
+  if (!(credit0 > 0) || magi0 > cfg.aca.cliff * line) return { ptc: 0, cliff: cfg.aca.cliff * line, bench: 0 };
+  const bench = credit0 + acaApplicable(magi0 / line, cfg) * magi0;
+  const ptc = magi > cfg.aca.cliff * line ? 0 : clamp0(bench - acaApplicable(magi / line, cfg) * magi);
+  return { ptc, cliff: cfg.aca.cliff * line, bench };
+}
+function thresholds(p, cfg = TAX) {
+  const mfj = p.status === 'MFJ', st = p.status, t = computeToday(fastP(p), cfg), m = t.minScenario;
+  const agi = m.agi, taxable = m.fed.taxable, medEarn = t.seca.seEarn + (mfj ? p.spGross : 0);
+  const room = preTaxRoom(p, cfg), reach = Math.max(10000, 0.12 * agi);
+  const T0 = householdTax(t), out = [];
+  const M = { agi: x => x.minScenario.agi, taxable: x => x.minScenario.fed.taxable, med: x => x.seca.seEarn + (mfj ? p.spGross : 0) };
+  const add = (o) => {
+    const v = o.measure === 'taxable' ? taxable : o.measure === 'med' ? medEarn : agi;
+    const above = v > o.at, gap = Math.abs(v - o.at);
+    if (gap > (o.reach || reach) && !(above && o.backAlways)) return;
+    let back = null;
+    if (above && o.canGoBack !== false) back = preTaxToReach(p, M[o.measure], o.at - (o.cliff ? 1 : 0), cfg);
+    if (above && !o.showAbove && !back) return;
+    if (o.id.startsWith('saver') && !(o.cost >= 25)) return;            // no real credit at stake
+    out.push(Object.assign(o, { value: v, above, gap, back, room: room.min + room.sp }));
+  };
+
+  // Federal bracket edges with a real jump in rate (12→22, 24→32)
+  const b = cfg.brackets[st];
+  for (let i = 0; i < b.length - 1; i++) {
+    const jump = b[i + 1][1] - b[i][1]; if (jump < 0.05) continue;
+    add({ id: 'bracket' + Math.round(b[i][1] * 100), kind: 'bracket', measure: 'taxable', at: b[i][0], term: 'bracket',
+      name: `${Math.round(b[i][1] * 100)}% → ${Math.round(b[i + 1][1] * 100)}% federal bracket`,
+      effect: `Each $1,000 of taxable income above it costs ${fmt(jump * 1000)} more in federal tax than the same $1,000 below it.`, rateJump: jump });
+  }
+  // Saver's Credit tiers (AGI) — cliffs: $1 over drops the credit rate for every dollar saved
+  const qual = fedCredits(agi, 1e9, p, 0, cfg).saverQual;
+  const tiers = cfg.credits.saver.tiers[st];
+  // Federal tax after credits at a given AGI (to price a cliff exactly, incl. the credit's tax limit)
+  const ages = mfj ? [p.minAge, p.spAge] : [p.minAge], earned = p.minComp + t.otherNet + (mfj ? p.spGross : 0);
+  const fedAt = x => { const f = fedIncomeTax(x, st, ages, cfg.year, 1, false, cfg, t.giveDed); return f.tax - fedCredits(x, f.tax, p, earned, cfg).total; };
+  const cliffCost = at => Math.max(0, fedAt(at + 1) - fedAt(at) - 1);
+  tiers.forEach(([top, rate], i) => {
+    const next = i < tiers.length - 1 ? tiers[i + 1][1] : 0;
+    const maxQual = (mfj ? 2 : 1) * cfg.credits.saver.maxPer;
+    add({ id: 'saver' + i, kind: 'cliff', measure: 'agi', at: top, cliff: true, term: 'saverscredit', showAbove: false,
+      name: `Saver's Credit: ${Math.round(rate * 100)}% → ${next ? Math.round(next * 100) + '%' : 'none'}`,
+      cost: cliffCost(top), costMax: (rate - next) * maxQual, rate, next, qual,
+      effect: qual > 0 ? `Crossing it lowers your Saver's Credit by about ${fmt(cliffCost(top))} a year, all at once.`
+                       : `Up to $2,000 a person of retirement saving earns a ${Math.round(rate * 100)}% credit below this line.` });
+  });
+  // Roth IRA eligibility
+  const [rlo, rhi] = cfg.limits.rothIraPhase[st], rothIra = p.minRothIRA + (mfj ? p.spRothIRA : 0);
+  if (rothIra > 0 || Math.abs(agi - rlo) < reach) {
+    add({ id: 'rothira', kind: 'phaseout', measure: 'agi', at: rlo, term: 'roth', showAbove: true,
+      name: 'Roth IRA contributions phase out', effect: `Direct Roth IRA contributions shrink above it and stop at ${fmt(rhi)}. A "backdoor" Roth still works.` });
+  }
+  // Child tax credit phase-out
+  const kids = (+p.kidsUnder17 || 0) + (+p.otherDeps || 0);
+  if (kids > 0) add({ id: 'ctc', kind: 'phaseout', measure: 'agi', at: cfg.credits.ctc.phaseStart[st], term: 'ctc', showAbove: true,
+    name: 'Child tax credit begins to shrink', effect: 'The credit drops $50 for each $1,000 of income above it (5%), on top of your bracket.' });
+  // Senior deduction phase-out (65+, through 2028)
+  const n65 = [p.minAge].concat(mfj ? [p.spAge] : []).filter(a => a >= 65).length;
+  if (n65 && cfg.year <= cfg.senior.lastYear) add({ id: 'senior', kind: 'phaseout', measure: 'agi', at: cfg.senior.phaseStart[st], term: 'seniorded', showAbove: true,
+    name: 'Senior deduction begins to shrink', effect: `The $6,000-per-person deduction drops 6% of income above it${n65 > 1 ? ' for each of you' : ''}, which adds about ${Math.round(n65 * 6 * m.fed.marginal)}% to your tax rate.` });
+  // Additional Medicare tax (wages + SE earnings)
+  add({ id: 'addlmed', kind: 'surtax', measure: 'med', at: cfg.addlMed.thresh[st], term: 'seca', showAbove: true, reach: Math.min(reach, 15000),
+    name: 'Additional Medicare tax (0.9%)', effect: 'Earnings above it pay an extra 0.9% Medicare tax.' });
+  // Investment-income thresholds, only with taxable investments
+  if (p.brokerageBal > 0) {
+    add({ id: 'niit', kind: 'surtax', measure: 'agi', at: cfg.niit.thresh[st], term: 'niit', showAbove: true, canGoBack: true,
+      name: 'Net investment income tax (3.8%)', effect: 'Above it, dividends, interest and capital gains pay an extra 3.8%.' });
+    if (taxable < cfg.ltcg0Top[st]) add({ id: 'ltcg0', kind: 'room', measure: 'taxable', at: cfg.ltcg0Top[st], term: 'ltcg0', canGoBack: false,
+      name: '0% capital gains ceiling', effect: `Long-term gains that fit under it are taxed at 0% federally. You have about ${fmt(cfg.ltcg0Top[st] - taxable)} of room.` });
+  }
+  // ACA premium tax credit cliff (2026: no subsidy above 400% of the poverty line)
+  if (p.acaMarket) {
+    const size = acaHousehold(p, cfg);
+    const at = Math.round(cfg.aca.cliff * fpl(size, cfg.state.code, cfg));
+    const atCliff = p.acaSubsidy > 0 && agi <= at ? acaCredit(at, agi, p.acaSubsidy, p, cfg).ptc : (p.acaSubsidy || 0);
+    add({ id: 'aca', kind: 'cliff', measure: 'agi', at, cliff: true, term: 'aca', showAbove: true, backAlways: true, reach: Math.max(reach, 15000),
+      name: 'Marketplace insurance subsidy cliff', cost: atCliff, size,
+      effect: (p.acaSubsidy > 0 ? `Crossing it ends your premium tax credit (about ${fmt(atCliff)} a year by then), all at once. Below it, the credit also shrinks a little as income rises.` : 'Above it there is no help paying Marketplace premiums in 2026.') +
+        ' Your housing allowance does not count toward this income.' });
+  }
+  out.sort((x, y) => x.gap - y.gap);
+  return { list: out, agi, taxable, medEarn, T0 };
+}
+
+// Best split of a fixed yearly amount between pre-tax and Roth in one person's plan.
+// Pre-tax wins on each dollar whose tax saved now beats the tax its withdrawal will owe later
+// (retRate); same growth either way. Evaluated on a $250 grid so credit cliffs are handled.
+function bestSplit(p, who, retRate, cfg = TAX) {
+  const pre = who === 'sp' ? 'spPreTax' : 'minPreTax', roth = who === 'sp' ? 'spRoth401k' : 'minRoth403b';
+  const total = (p[pre] || 0) + (p[roth] || 0);
+  if (total <= 0) return null;
+  const T = x => householdTax(computeToday(fastP(p, { [pre]: x, [roth]: total - x }), cfg));
+  const T0 = T(0), val = x => (T0 - T(x)) - x * retRate;
+  let best = 0, bestV = 0;
+  const steps = Math.min(200, Math.ceil(total / 250));
+  for (let k = 1; k <= steps; k++) { const x = Math.min(total, k * total / steps), v = val(x); if (v > bestV + 1) { best = x; bestV = v; } }
+  best = Math.round(best / 50) * 50;
+  const cur = p[pre] || 0;
+  return { total, pre: best, roth: total - best, cur, curRoth: total - cur, gain: val(best) - val(cur),
+           taxNowBest: T(best), taxNowCur: T(cur), retRate };
 }
 
 /* =====================================================================
@@ -757,6 +1024,31 @@ function selfTests() {
     add('Non-itemizer giving deduction $2,000 MFJ at 10%', a0.minScenario.fed.tax - g1.minScenario.fed.tax, 200);
     const e1 = computeToday(Object.assign({}, b, { contrib529: 3000, kids529: 1 }));
     add('MA 529: $2,000 deduction saves $100', e1.edu.saved, 100); }
+  // Credits (2026)
+  add("Saver's Credit 50% tier, $2,000 + $1,000 saved", fedCredits(40000, 5000, { status: 'MFJ', minPreTax: 3000, spPreTax: 1000 }, 50000).saver, 1500);
+  add("Saver's Credit limited to tax owed", fedCredits(40000, 900, { status: 'MFJ', minPreTax: 3000, spPreTax: 1000 }, 50000).saver, 900);
+  add("Saver's Credit 0% above $80,500 MFJ", fedCredits(80501, 5000, { status: 'MFJ', minPreTax: 3000 }, 90000).saver, 0);
+  add('Child tax credit phase-out: $10,500 over → −$550', fedCredits(410500, 50000, { status: 'MFJ', kidsUnder17: 2 }, 400000).ctc, 3850);
+  add('Refundable child credit capped at $1,700/child', fedCredits(30000, 0, { status: 'MFJ', kidsUnder17: 2 }, 30000).refundable, 3400);
+  { const saved = cfg_state_swap(stateConfig('TX'));
+    const b = { status: 'MFJ', minAge: 45, spAge: 45, minComp: 80000, housingDesignated: 20000, housingActual: 20000, housingFRV: 20000,
+      minPreTax: 0, minRoth403b: 0, minRothIRA: 0, spGross: 40000, spPreTax: 2000, spRoth401k: 3000, spRothIRA: 0 };
+    const nd = nextDollar(b), L = k => nd.lines.find(x => x.key === k);
+    add('Minister pre-tax $1,000 also saves SE tax (14.13%)', L('minPre').payroll, 0.9235 * 0.153, 0.0005);
+    add("Spouse pre-tax $1,000 saves no payroll tax", L('spPre').payroll, 0, 1e-9);
+    add('Church salary rate = fed + SE tax', L('church').rate, L('church').fed + L('church').cred + 0.9235 * 0.153, 0.0005);
+    add('Split at 12% bracket, 22% later → all Roth', bestSplit(b, 'sp', 0.22).pre, 0);
+    add('Split at 12% bracket, 5% later → all pre-tax', bestSplit(b, 'sp', 0.05).pre, 5000);
+    const hi = Object.assign({}, b, { minComp: 200000, spGross: 100000 });
+    const need = preTaxToReach(hi, x => x.minScenario.fed.taxable, 211400);
+    const after = computeToday(Object.assign({}, hi, { minPreTax: need.min, spPreTax: hi.spPreTax + need.sp, _fast: true })).minScenario.fed.taxable;
+    { const pa = { status: 'MFJ', kidsUnder17: 2 }, line = fpl(4);   // $32,150 → cliff $128,600
+      add('ACA: 400% FPL for 4 people (2026 coverage)', 4 * line, 128600);
+      add('ACA: same income keeps the same credit', acaCredit(110000, 110000, 9000, pa).ptc, 9000, 0.01);
+      add('ACA: +$1,000 at 300–400% FPL costs 9.96%', 9000 - acaCredit(111000, 110000, 9000, pa).ptc, 99.6, 0.01);
+      add('ACA: $1 over the cliff ends the credit', acaCredit(128601, 110000, 9000, pa).ptc, 0); }
+    add('Pre-tax solver lands at the bracket edge', after <= 211400 && after > 211300 ? 1 : 0, 1);
+    cfg_state_swap(saved); }
   { const Pp = { years: 1, status: 'MFJ', startCalYear: 2046, scale0: 1, inflation: 0, ret: 0, spend0: 30000, ssMin0: 0, ssSp0: 0,
       pension0: 30000, pensionCOLA: false, pensionHousing: true, pensionStartAge: 0, housing0: 30000, housingOn: true,
       minAgeStart: 65, spAgeStart: 65, minRmdAge: 75, spRmdAge: 75, drawOrder: 'roth-first', convOn: false, survivorOn: false, survivorSpendPct: 1, seniorExtended: false, brokTaxDrag: 0 };
@@ -792,7 +1084,8 @@ function selfTests() {
 
 const API = { TAX, STATES, NO_WAGE_TAX, stateConfig, S529, state529, bracketTax, bracketTop, seniorDeduction, fedIncomeTax, taxableSS, ministerSECA, employeeFICA,
   additionalMedicare, stateTax, rmdStartAge, rmdFactor, deferralLimit, iraLimit, rothIraAllowed,
-  computeToday, accumulate, runRetirement, yearTax, buildRetParams, monteCarlo, fmt, selfTests, sumB };
+  computeToday, accumulate, runRetirement, yearTax, buildRetParams, monteCarlo, fmt, selfTests, sumB,
+  fedCredits, saverRate, householdTax, deltaRate, bracketInfo, preTaxRoom, preTaxToReach, nextDollar, thresholds, bestSplit, fpl, acaCredit, acaApplicable };
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else root.Engine = API;
 })(typeof window !== 'undefined' ? window : globalThis);

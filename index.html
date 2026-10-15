@@ -313,6 +313,13 @@ body.simple .adv{display:none!important}
 .sg-list.muted .sg-item{opacity:.7}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+.nd-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.nd-row{display:grid;gap:3px}
+.nd-top{display:flex;justify-content:space-between;gap:8px;font-size:.9rem}
+.nd-top b{font-family:var(--f-mono);font-weight:500}
+.nd-h{margin:6px 0 0;font-size:.74rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.split-block{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.split-block .mini-kpis b{font-size:.9rem}
 </style>
 </head>
 <body>
@@ -385,6 +392,10 @@ body.simple .adv{display:none!important}
         <div class="field"><label for="state">State<small id="stateNote"></small></label><select id="state"></select></div>
         <div class="field state-flat"><label for="stateRate">State income tax rate (%)<small>Approximate effective rate</small></label><input type="number" id="stateRate" step="0.1"></div>
         <label class="check state-flat"><input type="checkbox" id="stateTaxesSS"><span>My state taxes Social Security</span></label>
+        <div class="field"><label for="kidsUnder17">Children under 17<small>For the child tax credit</small></label><input type="number" id="kidsUnder17" step="1" min="0"></div>
+        <div class="field adv"><label for="otherDeps">Other dependents<small>Older children or relatives you support</small></label><input type="number" id="otherDeps" step="1" min="0"></div>
+        <label class="check"><input type="checkbox" id="acaMarket"><span>We buy health insurance on the Marketplace (healthcare.gov)</span></label>
+        <div class="field aca-only"><label for="acaSubsidy">Premium tax credit (per year)<small>The yearly subsidy shown in your Marketplace account</small></label><input type="number" id="acaSubsidy" step="100" min="0"></div>
 
         <div class="group-title"><h3>Minister</h3><span class="cite">§107 · §1402</span></div>
         <div class="field"><label for="minComp">Total compensation<small>Salary including the housing allowance</small></label><input type="number" id="minComp" step="100"></div>
@@ -428,6 +439,18 @@ body.simple .adv{display:none!important}
       <div class="card">
         <div class="card-h"><h2>Other income: what to set aside</h2><button type="button" class="term-q" data-term="sideincome" aria-label="About other income">?</button></div>
         <div id="otherIncomeOut"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Where your next dollar is taxed</h2><button type="button" class="term-q" data-term="nextdollar" aria-label="About your true tax rate">?</button></div>
+        <div id="nextDollarOut"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Thresholds near you</h2><button type="button" class="term-q" data-term="threshold" aria-label="About tax thresholds">?</button></div>
+        <div id="thresholdsOut"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Pre-tax or Roth?</h2><button type="button" class="term-q" data-term="roth" aria-label="About Roth">?</button></div>
+        <div id="splitOut"></div>
       </div>
       <div class="card">
         <div class="card-h"><h2>Dual-status math</h2><span class="muted small">vs. the same pay as a W-2 employee</span></div>
@@ -676,6 +699,7 @@ body.simple .adv{display:none!important}
 <script src="sliders.js"></script>
 <script src="ai.js"></script>
 <script src="plan.js"></script>
+<script src="marginal.js"></script>
 <script src="suggest.js"></script>
 <script src="home.js"></script>
 <script src="guide.js"></script>
