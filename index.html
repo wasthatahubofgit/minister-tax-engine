@@ -293,6 +293,17 @@ body.simple .adv{display:none!important}
 .unsure{display:grid;gap:8px;background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:.88rem}
 .unsure p{margin:0}
 
+
+.tabhelp{grid-column:1 / -1;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:var(--r);padding:0 14px}
+.tabhelp summary{cursor:pointer;padding:10px 0;font-weight:600;font-size:.9rem;color:var(--accent);display:flex;align-items:center;gap:8px;list-style:none}
+.tabhelp summary::-webkit-details-marker{display:none}
+.tabhelp summary::after{content:"Show";margin-left:auto;font-weight:500;font-size:.78rem;color:var(--muted)}
+.tabhelp[open] summary::after{content:"Hide"}
+.th-icon{width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:.75rem}
+.th-body{padding:0 0 12px;font-size:.9rem;line-height:1.55;max-width:78ch}
+.th-body p{margin:0 0 6px} .th-body ol{margin:0 0 6px;padding-left:20px;display:grid;gap:4px}
+.th-tip{color:var(--muted)}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -325,7 +336,7 @@ body.simple .adv{display:none!important}
 
   <!-- ===================== HOME ===================== -->
   <section class="panel" data-panel="home">
-    <div class="home-head"><div><h2>Your household at a glance</h2><p class="note" style="margin:2px 0 0">Choose the cards you want here. Everything updates as you change numbers anywhere in the app.</p></div>
+    <div class="home-head"><div><h2>Your household at a glance</h2></div>
       <div class="row"><button class="btn" type="button" id="btnHomeEdit" aria-pressed="false">Customize</button></div></div>
     <div class="home-add" id="homeAdd" hidden></div>
     <div class="home-grid" id="homeGrid"></div>
@@ -632,6 +643,7 @@ body.simple .adv{display:none!important}
 <script src="engine.js"></script>
 <script src="app.js"></script>
 <script src="account.js"></script>
+<script src="tabhelp.js"></script>
 <script src="budget.js"></script>
 <script src="impact.js"></script>
 <script src="glossary.js"></script>
