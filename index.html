@@ -141,6 +141,98 @@ select{text-align:left;font-family:var(--f-body)}
 .text-input{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);min-width:0;flex:1 1 180px}
 .hidden-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 footer{margin-top:28px;font-size:.78rem;color:var(--muted);max-width:80ch}
+
+/* ---------- V15: header, impact, sliders, glossary, wizard, coach ---------- */
+.bar-in{display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:center}
+.bar-actions{display:flex;gap:6px;justify-self:end}
+.bar .chips{grid-column:1 / -1;display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.bar .chips::-webkit-scrollbar{display:none}
+.chip{font:inherit;text-align:left;cursor:pointer;color:var(--ink);flex:0 0 auto}
+.chip:hover{border-color:var(--accent)}
+.chip i{font-style:normal;font-family:var(--f-mono);font-size:.78rem;font-weight:500}
+.chip i.up{color:var(--good)} .chip i.down{color:var(--bad)}
+.chip-edit{justify-content:center;color:var(--muted);font-size:.8rem;border-style:dashed}
+.impact{border-top:1px solid var(--line);background:var(--accent-soft)}
+.impact-in{max-width:1220px;margin:0 auto;padding:8px 16px;display:grid;gap:4px;font-size:.88rem}
+.impact-in p{margin:0}
+.impact-quote{font-family:var(--f-display);font-style:italic;color:var(--muted)}
+.linkish{font:inherit;background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer}
+.text-in{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);width:100%}
+.slide-row{grid-column:1 / -1;display:flex;align-items:center;gap:10px;margin-top:-2px}
+.permo{font-size:.74rem;color:var(--muted);white-space:nowrap}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:22px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:99px;background:linear-gradient(90deg,var(--accent) var(--p,0%),var(--line) var(--p,0%))}
+input[type=range]::-moz-range-track{height:5px;border-radius:99px;background:var(--line)}
+input[type=range]::-moz-range-progress{height:5px;border-radius:99px;background:var(--accent)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);margin-top:-6.5px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.term-q{font:600 .68rem/1 var(--f-body);width:17px;height:17px;border-radius:50%;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer;margin-left:6px;vertical-align:1px;padding:0}
+.term{font:inherit;background:none;border:0;padding:0;color:inherit;text-decoration:underline dotted var(--accent);text-underline-offset:3px;text-decoration-thickness:2px;cursor:help}
+.gloss-pop{position:fixed;z-index:80;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:14px 16px;max-height:70vh;overflow:auto;font-size:.9rem}
+.gloss-pop.sheet{left:0!important;right:0;bottom:0;top:auto!important;width:auto!important;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.gloss-pop p{margin:6px 0}
+.gl-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.gl-head h3{font-family:var(--f-display);font-size:1.1rem}
+.gl-x,.wz-x{font:400 1.5rem/1 var(--f-body);background:none;border:0;color:var(--muted);cursor:pointer;padding:4px 8px}
+.gl-sec{margin-top:8px} .gl-sec ul{margin:4px 0 0;padding-left:18px;display:grid;gap:3px}
+.gl-reflect{font-family:var(--f-display);font-style:italic;border-left:3px solid var(--accent);padding-left:10px}
+.learn-group{margin:18px 0 6px;font-family:var(--f-display);font-size:1.05rem}
+.learn-term{border-top:1px solid var(--line);padding:10px 0}
+.learn-term summary{cursor:pointer;display:grid;gap:2px;list-style:none}
+.learn-term summary::-webkit-details-marker{display:none}
+.learn-term[open] summary .muted{display:none}
+.start-list{display:grid;gap:4px;padding-left:22px;margin:8px 0}
+.coach-hero h2{margin:4px 0 6px}
+.prompt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.prompt-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:grid;gap:6px;align-content:start}
+.prompt-card h3{font-size:.95rem} .prompt-card p{margin:0}
+.chat-log{max-height:420px;overflow:auto;display:grid;gap:8px;padding:4px}
+.msg{padding:8px 12px;border-radius:10px;max-width:92%;font-size:.9rem;line-height:1.55}
+.msg p{margin:4px 0} .msg.user{justify-self:end;background:var(--accent);color:var(--accent-ink)}
+.msg.assistant{justify-self:start;background:var(--surface-2)}
+.msg h4{font-family:var(--f-display);margin:8px 0 2px}
+.chat-form{display:grid;gap:8px}
+.chat-form textarea,.wizard textarea{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);width:100%;resize:vertical}
+.watch-menu{position:fixed;z-index:70;width:280px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:12px;display:grid;gap:6px}
+body.wz-open{overflow:hidden}
+.wizard{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--ink) 45%,transparent);display:grid;place-items:center;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+.wz-card{background:var(--surface);color:var(--ink);border-radius:16px;width:min(620px,100%);max-height:100%;overflow:auto;padding:20px 22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.wz-card h2{font-size:1.5rem;line-height:1.2;outline:none}
+.wz-top{display:flex;justify-content:space-between;align-items:center}
+.wz-dots{display:flex;gap:5px} .wz-dots i{width:22px;height:4px;border-radius:2px;background:var(--line)} .wz-dots i.on{background:var(--accent)}
+.wz-body{flex:1 0 auto;display:grid;align-content:start;gap:14px;font-size:.95rem;line-height:1.55}
+.wz-body p{margin:0}
+.wz-quote{margin:0;font-family:var(--f-display);font-size:1.12rem;line-height:1.5;border-left:3px solid var(--accent);padding:2px 0 2px 14px;color:var(--ink)}
+.wz-field{display:grid;gap:6px}
+.wz-field label,.wz-label{font-weight:500;display:block;line-height:1.45}
+.wz-field label small,.wz-label small{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:2px}
+.wz-in{display:flex;align-items:center;gap:6px;max-width:260px}
+.wz-in input{font:1.1rem var(--f-mono);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);width:100%;text-align:right}
+.wz-unit{color:var(--muted);font-size:.9rem}
+.wz-field select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);max-width:320px}
+.wz-choices{display:flex;flex-wrap:wrap;gap:8px}
+.wz-choices .btn{padding:10px 16px}
+.wz-list{margin:0;padding-left:20px;display:grid;gap:6px}
+.wz-demo{background:var(--surface-2);border-radius:12px;padding:14px;display:grid;gap:12px}
+.wz-result{font-size:1rem}
+.wz-checks{display:grid;gap:8px}
+.wz-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.wz-summary div{background:var(--surface-2);border-radius:10px;padding:10px 12px;display:grid;gap:2px}
+.wz-summary b{font-size:1.25rem;font-weight:500}
+.wz-calling{font-style:italic;color:var(--muted)}
+.wz-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:640px){
+  .bar-in h1{font-size:1.05rem}
+  .bar-actions .btn{padding:6px 10px;font-size:.8rem}
+  .impact-quote{display:none}
+  .impact-in{font-size:.82rem;padding:6px 16px}
+  .chip{padding:3px 8px} .chip b{font-size:.9rem}
+  .wizard{padding:0;place-items:stretch}
+  .wz-card{border-radius:0;width:100%;height:100%;max-height:none;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+  .wz-card h2{font-size:1.3rem}
+}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -149,9 +241,11 @@ footer{margin-top:28px;font-size:.78rem;color:var(--muted);max-width:80ch}
 
 <div class="bar" role="region" aria-label="Summary">
   <div class="bar-in">
-    <h1>Minister Tax &amp; Wealth Engine <span class="muted small num">V14 · TY2026</span></h1>
-    <div class="row"><div class="chips" id="chips"></div><button class="btn" id="btnAccount" type="button">Sign in</button></div>
+    <h1>Minister Tax &amp; Wealth Engine <span class="muted small num">TY2026</span></h1>
+    <div class="bar-actions"><button class="btn" id="btnGuide" type="button">Guided setup</button><button class="btn" id="btnAccount" type="button">Sign in</button></div>
+    <div class="chips" id="chips" aria-label="Figures you are watching"></div>
   </div>
+  <div class="impact" id="impact" hidden aria-live="polite"></div>
 </div>
 
 <div class="wrap">
@@ -161,7 +255,8 @@ footer{margin-top:28px;font-size:.78rem;color:var(--muted);max-width:80ch}
     <button class="tab" role="tab" data-tab="retire" aria-selected="false">Retirement</button>
     <button class="tab" role="tab" data-tab="years" aria-selected="false">Year by year</button>
     <button class="tab" role="tab" data-tab="scen" aria-selected="false">Scenarios</button>
-    <button class="tab" role="tab" data-tab="audit" aria-selected="false">AI audit</button>
+    <button class="tab" role="tab" data-tab="audit" aria-selected="false">AI coach</button>
+    <button class="tab" role="tab" data-tab="learn" aria-selected="false">Learn</button>
     <button class="tab" role="tab" data-tab="account" aria-selected="false">My account</button>
     <button class="tab" role="tab" data-tab="rules" aria-selected="false">Assumptions &amp; tax law</button>
   </nav>
@@ -178,6 +273,9 @@ footer{margin-top:28px;font-size:.78rem;color:var(--muted);max-width:80ch}
         </div>
         <div class="field"><label for="minAge">Minister age</label><input type="number" id="minAge" step="1"></div>
         <div class="field spouse-only"><label for="spAge">Spouse age</label><input type="number" id="spAge" step="1"></div>
+        <div class="field"><label for="state">State<small id="stateNote"></small></label><select id="state"></select></div>
+        <div class="field state-flat"><label for="stateRate">State income tax rate (%)<small>Approximate effective rate</small></label><input type="number" id="stateRate" step="0.1"></div>
+        <label class="check state-flat"><input type="checkbox" id="stateTaxesSS"><span>My state taxes Social Security</span></label>
 
         <div class="group-title"><h3>Minister</h3><span class="cite">§107 · §1402</span></div>
         <div class="field"><label for="minComp">Total compensation<small>Salary including the housing allowance</small></label><input type="number" id="minComp" step="100"></div>
@@ -324,37 +422,56 @@ footer{margin-top:28px;font-size:.78rem;color:var(--muted);max-width:80ch}
     <div class="scen" id="scenGrid"></div>
   </section>
 
-  <!-- ===================== AI AUDIT ===================== -->
+  <!-- ===================== AI COACH ===================== -->
   <section class="panel" data-panel="audit" hidden>
-    <div class="card">
-      <div class="card-h"><h2>AI strategic audit</h2><span class="muted small">Bring your own AI</span></div>
-      <p class="note">The audit prompt is filled in with your current numbers (no names). Use it with any AI you already have. Nothing is sent anywhere until you choose to.</p>
+    <div class="card coach-hero">
+      <span class="eyebrow">AI coach</span>
+      <h2>Think it through with an AI that shares this app's lens</h2>
+      <p class="note">Each prompt below already includes your current numbers (no names) and a stewardship perspective: how today's choices shape tomorrow, generosity, and what you're called to now. Copy one into any AI you already use, or chat here with your own API key.</p>
+      <div class="row small"><span class="muted">Open:</span>
+        <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
+        <a href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
+        <a href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a>
+        <a href="https://copilot.microsoft.com/" target="_blank" rel="noopener">Copilot</a>
+      </div>
     </div>
+    <div class="prompt-grid" id="promptCards"></div>
     <div class="scen">
-      <div class="card" style="display:grid;gap:10px;align-content:start">
-        <h3>Use the AI you already have</h3>
-        <p class="note">Copy the prompt, then paste it into a new chat.</p>
-        <div class="row"><button class="btn primary" id="btnCopyPrompt" type="button">Copy audit prompt</button><span class="small muted" id="copyMsg" aria-live="polite"></span></div>
-        <div class="row small">
-          <a href="https://chatgpt.com/" target="_blank" rel="noopener">Open ChatGPT</a>
-          <a href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a>
-          <a href="https://gemini.google.com/app" target="_blank" rel="noopener">Open Gemini</a>
-          <a href="https://copilot.microsoft.com/" target="_blank" rel="noopener">Open Copilot</a>
-        </div>
-        <details><summary class="small">Show the prompt</summary><textarea id="promptBox" readonly rows="12" style="width:100%;margin-top:8px;font:12px/1.4 var(--f-mono);background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px" aria-label="Audit prompt"></textarea></details>
+      <div class="card" id="chatCard" style="display:grid;gap:10px;align-content:start">
+        <div class="card-h" style="margin:0"><h3>Chat here</h3><button class="linkish small" type="button" id="btnClearChat">Start over</button></div>
+        <div class="chat-log" id="chatLog" aria-live="polite"></div>
+        <form id="chatForm" class="chat-form">
+          <textarea id="chatInput" rows="2" placeholder="Ask anything, e.g. What would saving $50 more a month change for us?" aria-label="Message the AI coach"></textarea>
+          <div class="row"><button class="btn primary" id="btnSend" type="submit" disabled>Send</button><button class="btn" id="btnStopChat" type="button" hidden>Stop</button>
+          <span class="small muted" id="chatHint">Add your API key and pick a model to chat here.</span></div>
+        </form>
       </div>
       <div class="card" style="display:grid;gap:10px;align-content:start">
-        <h3>Or run it here with your own API key</h3>
-        <p class="note">Your key goes straight from this browser to the provider you pick. It is never sent to this site or saved to your account.</p>
+        <h3>Your AI key</h3>
+        <p class="note">Your key goes straight from this browser to the provider you pick. It is never sent to this site or saved to your account. Don't have one? Use the copy buttons above with a free ChatGPT, Claude or Gemini account instead.</p>
         <div class="field wide"><label for="aiProvider">Provider</label><select id="aiProvider"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI (ChatGPT)</option><option value="gemini">Google (Gemini)</option></select></div>
-        <div class="field wide"><label for="aiKey">API key</label><input id="aiKey" type="password" autocomplete="off" spellcheck="false" style="font:inherit;font-family:var(--f-mono);font-size:.85rem;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);width:100%"></div>
+        <div class="field wide"><label for="aiKey">API key</label><input id="aiKey" type="password" autocomplete="off" spellcheck="false" class="text-in"></div>
         <label class="check"><input type="checkbox" id="aiRemember"><span>Remember this key on this device</span></label>
         <div class="field wide"><label for="aiModel">Model</label><select id="aiModel"><option value="">Load models first</option></select></div>
-        <div class="row"><button class="btn" id="btnModels" type="button">Load models</button><button class="btn primary" id="btnRunAI" type="button" disabled>Run audit</button><button class="btn" id="btnStopAI" type="button" hidden>Stop</button></div>
+        <div class="row"><button class="btn" id="btnModels" type="button">Load models</button></div>
         <p class="small muted" id="aiMsg" aria-live="polite"></p>
       </div>
     </div>
-    <div class="card"><div class="audit" id="auditOut" aria-live="polite"><p class="muted">Results from "Run audit" appear here.</p></div></div>
+  </section>
+
+  <!-- ===================== LEARN ===================== -->
+  <section class="panel" data-panel="learn" hidden>
+    <div class="card coach-hero">
+      <span class="eyebrow">Learn</span>
+      <h2>Plain-language explanations, with places to go deeper</h2>
+      <p class="note">Tap any term for a short explanation, articles, videos, and a ready-made prompt to have any AI explain it with examples. New to all of this? Start with these, in order:</p>
+      <ol class="start-list" id="learnStart"></ol>
+      <div class="row"><button class="btn" type="button" id="btnReplay">Replay the welcome and setup</button></div>
+    </div>
+    <div class="card">
+      <input type="search" id="learnSearch" class="text-in" placeholder="Search terms, e.g. housing, Roth, RMD" aria-label="Search terms">
+      <div id="learnList"></div>
+    </div>
   </section>
 
   <!-- ===================== ACCOUNT ===================== -->
@@ -405,6 +522,10 @@ footer{margin-top:28px;font-size:.78rem;color:var(--muted);max-width:80ch}
 <script src="engine.js"></script>
 <script src="app.js"></script>
 <script src="account.js"></script>
+<script src="impact.js"></script>
+<script src="glossary.js"></script>
+<script src="sliders.js"></script>
 <script src="ai.js"></script>
+<script src="guide.js"></script>
 </body>
 </html>

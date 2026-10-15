@@ -14,7 +14,7 @@ const store = {
 /* ---------- Inputs ---------- */
 // pct: shown as %, stored as fraction
 const FIELDS = {
-  minAge:45, spAge:45, minComp:109295, housingDesignated:40032, housingActual:40032, housingFRV:40032,
+  minAge:45, spAge:45, state:{v:'MA',sel:1}, stateRate:{v:4.5,pct:1}, stateTaxesSS:{v:false,bool:1}, minComp:109295, housingDesignated:40032, housingActual:40032, housingFRV:40032,
   minPreTax:0, minRoth403b:0, minRothIRA:0, spGross:66039, spPreTax:0, spRoth401k:0, spRothIRA:0,
   yearsToRetire:20, accReturn:{v:7,pct:1}, salaryGrowth:{v:0,pct:1},
   minTradBal:50000, churchPlanPct:{v:100,pct:1}, minRothBal:10000, spTradBal:25000, spRothBal:5000,
@@ -78,10 +78,7 @@ const TAXFIELDS = [
   ['Top of 24% bracket (MFJ)', t => t.brackets.MFJ[3][0], (t,v) => t.brackets.MFJ[3][0] = v],
   ['Social Security wage base', t => t.ssWageBase, (t,v) => t.ssWageBase = v],
   ['403(b)/401(k) deferral limit', t => t.limits.deferral, (t,v) => t.limits.deferral = v],
-  ['IRA limit', t => t.limits.ira, (t,v) => t.limits.ira = v],
-  ['State rate (%)', t => t.state.rate * 100, (t,v) => t.state.rate = v / 100, 0.1],
-  ['State personal exemption (MFJ)', t => t.state.persExempt.MFJ, (t,v) => t.state.persExempt.MFJ = v],
-  ['State surtax threshold', t => t.state.surtaxThresh, (t,v) => t.state.surtaxThresh = v]
+  ['IRA limit', t => t.limits.ira, (t,v) => t.limits.ira = v]
 ];
 function buildTaxFields(){
   $('taxFields').innerHTML = TAXFIELDS.map(([l, g, , st], i) =>
@@ -97,24 +94,38 @@ $('btnTaxReset').onclick = () => {
 
 /* ---------- Compute ---------- */
 let last = null, timer = null;
-function schedule(){ clearTimeout(timer); timer = setTimeout(recalc, 220); }
-document.addEventListener('input', e => { if (e.target.matches('input,select') && !e.target.id.startsWith('tx') && e.target.id !== 'scenName') schedule(); });
-document.addEventListener('change', e => { if (e.target.matches('input[type=checkbox],select')) schedule(); });
+let pendingFast = false;
+function schedule(fast){ clearTimeout(timer); pendingFast = !!fast; timer = setTimeout(() => recalc(pendingFast), fast ? 40 : 200); }
+const NOCALC = /^(tx\d+|scenName|aiKey|chatInput|learnSearch|wz|demo|sl-|aEmail|aPass|vP|nPw|nVp)/;
+document.addEventListener('input', e => { const t = e.target; if (t.matches('input,select') && t.type !== 'range' && !NOCALC.test(t.id || 'x') && !t.closest('.wizard')) schedule(); });
+document.addEventListener('change', e => { const t = e.target; if (t.matches('input[type=checkbox],select') && A_FIELD(t.id)) schedule(); });
+function A_FIELD(id){ return Object.prototype.hasOwnProperty.call(FIELDS, id); }
 
-function compute(p){
+function compute(p, trials = 1000){
+  E.TAX.state = E.stateConfig(p.state, p.stateRate, p.stateTaxesSS);
   const today = E.computeToday(p);
   const acc = E.accumulate(p);
   const P = E.buildRetParams(p);
   const ret = E.runRetirement(acc.end, P, null);
-  const mc = E.monteCarlo(acc.end, P, { trials: 1000, vol: p.retVol, dist: p.dist, seed: 20261013 });
+  const mc = E.monteCarlo(acc.end, P, { trials, vol: p.retVol, dist: p.dist, seed: 20261013 });
   return { p, today, acc, P, ret, mc };
 }
-function recalc(){
+const renderHooks = [];
+function recalc(fast){
   const p = readParams();
   store.set('mtw.inputs', rawInputs());
-  try { last = compute(p); } catch (err) { console.error(err); return; }
+  syncStateUI();
+  try { last = compute(p, fast ? 250 : 1000); } catch (err) { console.error(err); return; }
+  last.fast = !!fast;
   renderAll(last);
   renderScen();
+  renderHooks.forEach(f => { try { f(last); } catch (e) { console.error(e); } });
+}
+function syncStateUI(){
+  const code = $('state').value, mode = code === 'MA' ? 'full' : E.NO_WAGE_TAX.includes(code) ? 'none' : 'flat';
+  document.querySelectorAll('.state-flat').forEach(el => el.hidden = mode !== 'flat');
+  $('stateNote').textContent = mode === 'full' ? 'Full Massachusetts rules: 5% flat, 4% surtax, Social Security exempt.'
+    : mode === 'none' ? 'No state tax on wages or retirement income.' : 'Enter your state\'s approximate income tax rate.';
 }
 
 /* ---------- Render ---------- */
@@ -125,10 +136,6 @@ function renderAll(r){
   const t = r.today, ret = r.ret, mc = r.mc;
   const succ = mc.successRate;
   const tone = succ >= .9 ? 'good' : succ >= .75 ? 'warn' : 'bad';
-  $('chips').innerHTML =
-    `<div class="chip ${t.netAdvantage >= 0 ? 'good' : 'bad'}"><span>Net vs W-2</span><b>${t.netAdvantage >= 0 ? '+' : ''}${fmt(t.netAdvantage)}</b></div>` +
-    `<div class="chip ${ret.depletedYear === -1 ? 'good' : 'bad'}"><span>Static plan lasts</span><b>${lastsText(r)}</b></div>` +
-    `<div class="chip ${tone}"><span>Monte Carlo</span><b>${pctf(succ)}</b></div>`;
 
   // Warnings
   document.querySelectorAll('.field.flag').forEach(f => f.classList.remove('flag'));
@@ -146,13 +153,13 @@ function renderToday(r){
     kpi('Net advantage vs W-2', (t.netAdvantage >= 0 ? '+' : '') + fmt(t.netAdvantage), 'Income-tax shield minus extra payroll tax', t.netAdvantage >= 0 ? 'good' : 'bad') +
     kpi('Excludable housing', fmt(t.excludable), t.housingExcess > 0 ? `${fmt(t.housingExcess)} of designation is taxable` : 'Lesser of designated, actual, fair rental', t.housingExcess > 0 ? 'warn' : '') +
     kpi('Break-even housing', be === null ? 'N/A' : fmt(be), be === null ? 'SECA exceeds any shield' : (t.excludable >= be ? 'You are above it' : 'You are below it'), be !== null && t.excludable >= be ? 'good' : 'warn') +
-    kpi('Marginal bracket', `${Math.round(t.marginalFed * 100)}% + ${(E.TAX.state.rate * 100).toFixed(1)}%`, 'Federal + Massachusetts');
+    kpi('Marginal bracket', `${Math.round(t.marginalFed * 100)}% + ${(E.TAX.state.rate * 100).toFixed(1)}%`, 'Federal + ' + esc(E.TAX.state.name));
 
   const w2 = t.w2, m = t.minScenario;
   $('dualTable').innerHTML = `
     <tr><th>Item</th><th class="r">Minister</th><th class="r">W-2 baseline</th></tr>
     <tr><td>Federal income tax</td><td class="r">${fmt(m.fed.tax)}</td><td class="r">${fmt(w2.fed.tax)}</td></tr>
-    <tr><td>Massachusetts income tax</td><td class="r">${fmt(m.stTax)}</td><td class="r">${fmt(w2.stTax)}</td></tr>
+    <tr><td>${esc(E.TAX.state.name)} income tax</td><td class="r">${fmt(m.stTax)}</td><td class="r">${fmt(w2.stTax)}</td></tr>
     <tr><td>Minister payroll tax <span class="cite">SECA vs FICA</span></td><td class="r">${fmt(t.seca.total)}</td><td class="r">${fmt(w2.minFICA)}</td></tr>
     <tr><td>Additional Medicare 0.9%</td><td class="r">${fmt(m.addlMed)}</td><td class="r">${fmt(w2.addlMed)}</td></tr>
     <tr><td>Shield from housing exclusion</td><td class="r pos">${fmt(t.shieldHousing)}</td><td class="r muted">–</td></tr>
@@ -225,7 +232,7 @@ function renderRetire(r){
     `<table class="ledger" style="margin-top:6px">
       <tr><td>Gross cash in</td><td class="r">${fmt(gross)}</td></tr>
       <tr><td>Federal tax (taxable SS ${fmt(y.taxableSS)})</td><td class="r neg">${y.fedTax>=0.5?'−':''}${fmt(y.fedTax)}</td></tr>
-      <tr><td>Massachusetts tax</td><td class="r neg">${y.stateTax>=0.5?'−':''}${fmt(y.stateTax)}</td></tr>
+      <tr><td>${esc(E.TAX.state.name)} tax</td><td class="r neg">${y.stateTax>=0.5?'−':''}${fmt(y.stateTax)}</td></tr>
       ${y.conv ? `<tr><td>Roth conversion (taxed, stays invested)</td><td class="r">${fmt(y.conv)}</td></tr>` : ''}
       ${y.surplus > 1 ? `<tr><td>Surplus reinvested in brokerage</td><td class="r">${fmt(y.surplus)}</td></tr>` : ''}
       <tr class="total"><td>Spending target</td><td class="r">${fmt(y.spend)}</td></tr>
@@ -235,7 +242,7 @@ function renderRetire(r){
 
 function renderYears(r){
   const mfj = r.p.status === 'MFJ';
-  const head = ['Yr','Year','Age','Spend','SS + pension','RMD','Housing-free','Taxable trad','Roth draw','Brokerage','Conversion','Fed tax','MA tax','End balance',"End (today's $)"];
+  const head = ['Yr','Year','Age','Spend','SS + pension','RMD','Housing-free','Taxable trad','Roth draw','Brokerage','Conversion','Fed tax','State tax','End balance',"End (today's $)"];
   const rows = r.ret.rows.map(y => [
     y.i, y.calYear, mfj ? `${y.mAge}/${y.sAge}` : y.mAge, fmt(y.spend), fmt(y.ss + y.pension), fmt(y.rmd), fmt(y.housingExcluded),
     fmt(y.churchDist - y.housingExcluded + y.otherTradDist), fmt(y.rothDist), fmt(y.brokDist), fmt(y.conv), fmt(y.fedTax), fmt(y.stateTax),
@@ -254,7 +261,9 @@ function renderAssumptions(r){
     'The housing exclusion in retirement applies only to distributions from the church-plan share of the minister’s 403(b), up to the allowance each year. It ends when the minister dies.',
     'Pre-tax 403(b) deferrals are excluded from the minister’s SE earnings (Pub. 517); Roth 403(b) deferrals and the housing allowance are included. Unreimbursed ministry expenses and the Deason allocation are not modeled.',
     'The W-2 baseline is the same pay with employee FICA and no housing exclusion. Ministers cannot elect this; it measures the dual-status trade-off.',
-    'Massachusetts: 5% flat, 4% surtax over the threshold, Social Security exempt, payroll/SE tax deduction capped at $2,000 per person, personal exemptions, $700 per person 65+. Plan deferrals excluded, distributions taxed.',
+    E.TAX.state.mode === 'full' ? 'Massachusetts: 5% flat, 4% surtax over the threshold, Social Security exempt, payroll/SE tax deduction capped at $2,000 per person, personal exemptions, $700 per person 65+. Plan deferrals excluded, distributions taxed.'
+      : E.TAX.state.mode === 'none' ? `${E.TAX.state.name} has no state income tax on wages or retirement income.`
+      : `${E.TAX.state.name}: modeled as a flat ${(E.TAX.state.rate*100).toFixed(1)}% on income after the housing exclusion and plan deferrals; Social Security ${E.TAX.state.ssExempt ? 'not taxed' : 'taxed'}. Real state rules (brackets, exemptions, retirement-income breaks) differ, so treat state tax as an estimate.`,
     'Draws happen at the start of each year, then all buckets grow. Brokerage withdrawals are treated as return of basis; brokerage gains lose the tax-drag share each year.',
     'Roth conversions draw from non-church Traditional money, fill the chosen bracket each year until RMD age, and are paid for from spending cash.',
     'Monte Carlo uses independent annual returns with a fixed seed so results are repeatable; RMDs, taxes and conversions run inside every trial.',
@@ -360,7 +369,7 @@ function auditPrompt(r){
   const p = r.p, t = r.today, ret = r.ret, mc = r.mc, P = r.P;
   return `You are a fee-only financial planner who specializes in clergy taxes (IRC §107 housing allowance, dual-status SECA, 403(b)(9) church plans). Review this household's planning model and write a candid, numbers-specific audit.
 
-HOUSEHOLD (tax year 2026, Massachusetts, ${p.status})
+HOUSEHOLD (tax year 2026, ${E.TAX.state.name}, ${p.status})
 - Minister age ${p.minAge}${p.status==='MFJ'?`, spouse age ${p.spAge}`:''}
 - Minister total comp ${fmt(p.minComp)} incl. housing designation ${fmt(p.housingDesignated)}; excludable housing ${fmt(t.excludable)} (actual ${fmt(p.housingActual)}, FRV ${fmt(p.housingFRV)})
 - Minister 403(b) pre-tax ${fmt(p.minPreTax)}, Roth 403(b) ${fmt(p.minRoth403b)}, Roth IRA ${fmt(p.minRothIRA)} (deferral limit ${fmt(t.limits.minDeferral)})
@@ -469,7 +478,8 @@ $('btnTests').onclick = () => {
 
 /* ---------- Shared API for account.js and ai.js ---------- */
 window.App = {
-  $, esc, fmt, store, showTab, mdToHtml,
+  E, $, esc, fmt, pctf, store, showTab, mdToHtml, compute, readParams, rawInputs, setInputs, setStatus, schedule,
+  recalc: fast => recalc(fast), getLast: () => last, onRender: f => renderHooks.push(f), fields: () => Object.keys(FIELDS), spec,
   auditPrompt: () => last ? auditPrompt(last) : '',
   localScenarios: () => localBackend.list(),
   clearLocal(){ try { Object.keys(localStorage).filter(k => k.startsWith('mtw.')).forEach(k => localStorage.removeItem(k)); } catch {} },
@@ -478,9 +488,10 @@ window.App = {
 };
 
 /* ---------- Boot ---------- */
+$('state').innerHTML = E.STATES.map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join('');
 loadTax(); buildTaxFields();
 setInputs(store.get('mtw.inputs', null));
-const TABS = ['today','grow','retire','years','scen','audit','account','rules'];
+const TABS = ['today','grow','retire','years','scen','audit','learn','account','rules'];
 const tab = (location.hash || '').slice(1) || store.get('mtw.tab', 'today');
 showTab(TABS.includes(tab) ? tab : 'today');
 recalc();

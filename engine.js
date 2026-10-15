@@ -45,7 +45,7 @@ const TAX = {
   state: {
     name: 'Massachusetts', rate: 0.05, surtaxRate: 0.04, surtaxThresh: 1107750,
     persExempt: { MFJ: 8800, Single: 4400 }, age65Exempt: 700, payrollDedCap: 2000,
-    ssExempt: true, conformsTo107: true
+    ssExempt: true, conformsTo107: true, code: 'MA', mode: 'full'
   },
   rmd: {
     72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,80:20.2,
@@ -56,6 +56,35 @@ const TAX = {
     118:2.5,119:2.3,120:2.0
   }
 };
+
+/* ---------------------------------------------------------------------
+   STATE INCOME TAX presets.
+   - MA: full rules above (5% + 4% surtax, SS exempt, conforms to §107).
+   - No wage income tax (2026): AK, FL, NV, NH, SD, TN, TX, WA, WY.
+   - Any other state: a flat effective rate the user enters, with a toggle for
+     whether the state taxes Social Security. All modeled states are assumed to
+     follow the federal §107 housing exclusion and retirement-plan deferrals.
+   --------------------------------------------------------------------- */
+const STATES = [
+  ['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],['CO','Colorado'],['CT','Connecticut'],
+  ['DE','Delaware'],['DC','District of Columbia'],['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],
+  ['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],
+  ['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],
+  ['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY','New York'],
+  ['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],
+  ['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],
+  ['VT','Vermont'],['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']
+];
+const NO_WAGE_TAX = ['AK','FL','NV','NH','SD','TN','TX','WA','WY'];
+const MA_STATE = JSON.parse(JSON.stringify(TAX.state));
+function stateConfig(code, flatRate, taxesSS){
+  const name = (STATES.find(s => s[0] === code) || [code, code])[1];
+  if (code === 'MA') return Object.assign(JSON.parse(JSON.stringify(MA_STATE)), { code });
+  const base = { code, name, rate: 0, surtaxRate: 0, surtaxThresh: Infinity, persExempt: { MFJ: 0, Single: 0 },
+                 age65Exempt: 0, payrollDedCap: 0, ssExempt: true, conformsTo107: true, mode: 'flat' };
+  if (NO_WAGE_TAX.includes(code)) return Object.assign(base, { mode: 'none' });
+  return Object.assign(base, { rate: Math.max(0, flatRate || 0), ssExempt: !taxesSS });
+}
 
 const clamp0 = x => (x > 0 ? x : 0);
 
@@ -585,6 +614,7 @@ function fmt(n) {
   return s + '$' + Math.round(a).toLocaleString('en-US');
 }
 
+function cfg_state_swap(st){ const old = TAX.state; TAX.state = st; return old; }
 function selfTests() {
   const near = (a, b, tol = 0.01) => Math.abs(a - b) <= tol;
   const T = [];
@@ -612,6 +642,11 @@ function selfTests() {
   add('Roth IRA allowed MFJ MAGI $247k age 40', rothIraAllowed(247000, 'MFJ', 40), 3750);
   add('MA tax MFJ $100k, $2k+$2k payroll ded', stateTax(100000, 'MFJ', [45, 45], 4000), (100000 - 4000 - 8800) * .05);
   add('Bracket top 22% MFJ ×1.1', bracketTop(.22, 'MFJ', 1.1), 211400 * 1.1);
+  { const saved = cfg_state_swap(stateConfig('TX'));
+    add('No-income-tax state (TX) → $0', stateTax(100000, 'MFJ', [45, 45], 4000), 0);
+    cfg_state_swap(stateConfig('OH', 0.035, false));
+    add('Flat-rate state 3.5% on $100k', stateTax(100000, 'MFJ', [45, 45], 0), 3500);
+    cfg_state_swap(saved); }
 
   // Engine: zero-return, no-tax sanity — Roth only, spend exactly drains balance
   const P0 = { years: 10, status: 'MFJ', startCalYear: 2046, scale0: 1, inflation: 0, ret: 0,
@@ -639,7 +674,7 @@ function selfTests() {
   return T;
 }
 
-const API = { TAX, bracketTax, bracketTop, seniorDeduction, fedIncomeTax, taxableSS, ministerSECA, employeeFICA,
+const API = { TAX, STATES, NO_WAGE_TAX, stateConfig, bracketTax, bracketTop, seniorDeduction, fedIncomeTax, taxableSS, ministerSECA, employeeFICA,
   additionalMedicare, stateTax, rmdStartAge, rmdFactor, deferralLimit, iraLimit, rothIraAllowed,
   computeToday, accumulate, runRetirement, yearTax, buildRetParams, monteCarlo, fmt, selfTests, sumB };
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

@@ -5,7 +5,12 @@ A free planner for ministers: housing allowance (IRC §107), dual-status SECA, 4
 - Runs entirely in the browser. No server code.
 - Optional accounts (Supabase). Saved scenarios are encrypted in the browser with a vault passphrase before upload; the database stores only ciphertext and row-level security limits each person to their own rows.
 - AI audit uses the visitor's own AI: copy the prompt into any chat app, or paste their own Anthropic / OpenAI / Gemini API key (sent only to that provider, never to this site).
-- `engine.js` holds all tax math and 28 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
+- First-visit welcome story and a 9-step guided setup for newcomers (experts can close it; "Guided setup" reopens it).
+- Every number has a slider; the figures you choose to watch show before→after changes, with a plain-language "today → retirement" translation for savings changes.
+- Tap any term (or the ? next to a field) for a plain explanation with articles, videos and an "explain this" AI prompt. The Learn tab lists them all.
+- AI coach: prompts written in a stewardship lens, ready to paste into any AI, or chat in-app with your own key.
+- State tax: full Massachusetts rules, the nine states with no wage tax, or a flat rate for any other state.
+- `engine.js` holds all tax math and 30 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
 
 ## One-time setup
 
