@@ -15,10 +15,13 @@ const RANGES = {
   retYears: R(5, 45, 1), retReturn: R(0, 10, 0.1), retVol: R(0, 25, 0.5), inflation: R(0, 6, 0.1), brokTaxDrag: R(0, 40, 1),
   survivorYear: R(1, 40, 1), survivorSpendPct: R(40, 100, 5),
   cashBal: R(0, 200000, 500), cashContrib: R(0, 30000, 100), cashRate: R(0, 6, 0.1), brokContrib: R(0, 60000, 100),
-  whMinFed: R(0, 3000, 25), whMinState: R(0, 1000, 25), whSpFed: R(0, 3000, 25), whSpState: R(0, 1000, 25), estQuarterly: R(0, 10000, 50), lastYearTax: R(0, 80000, 100)
+  whMinFed: R(0, 3000, 25), whMinState: R(0, 1000, 25), whSpFed: R(0, 3000, 25), whSpState: R(0, 1000, 25), estQuarterly: R(0, 10000, 50), lastYearTax: R(0, 80000, 100),
+  otherSEIncome: R(0, 100000, 100), otherSEExpenses: R(0, 30000, 100), mortgageInterest: R(0, 40000, 100),
+  contrib529: R(0, 40000, 100), bal529: R(0, 300000, 500), kids529: R(0, 8, 1), yrsToCollege: R(0, 25, 1), limit529: R(0, 40000, 100),
+  pensionStartAge: R(0, 80, 1), pensionSurvivorPct: R(0, 100, 5)
 };
 // Annual dollar fields that also show a per-month equivalent
-const PER_MONTH = ['minComp', 'spGross', 'minPreTax', 'minRoth403b', 'minRothIRA', 'spPreTax', 'spRoth401k', 'spRothIRA', 'retSpend', 'retHousing', 'ssMin', 'ssSp', 'pension', 'housingDesignated', 'housingActual', 'cashContrib', 'brokContrib'];
+const PER_MONTH = ['minComp', 'spGross', 'minPreTax', 'minRoth403b', 'minRothIRA', 'spPreTax', 'spRoth401k', 'spRothIRA', 'retSpend', 'retHousing', 'ssMin', 'ssSp', 'pension', 'housingDesignated', 'housingActual', 'cashContrib', 'brokContrib', 'otherSEIncome', 'contrib529'];
 const sliders = {};
 
 function fill(sl){ const p = (sl.value - sl.min) / (sl.max - sl.min) * 100; sl.style.setProperty('--p', (isFinite(p) ? p : 0) + '%'); }

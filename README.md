@@ -5,6 +5,8 @@ A free planner for ministers: housing allowance (IRC §107), dual-status SECA, 4
 - Runs entirely in the browser. No server code.
 - Optional accounts (Supabase). Saved scenarios are encrypted in the browser with a vault passphrase before upload; the database stores only ciphertext and row-level security limits each person to their own rows.
 - AI audit uses the visitor's own AI: copy the prompt into any chat app, or paste their own Anthropic / OpenAI / Gemini API key (sent only to that provider, never to this site).
+- Worth discerning: rule-based prompts toward specific moves (housing allowance designation, donor-advised fund bunching, tax set-aside, emergency fund, Roth vs pre-tax, conversions, SEP-IRA for side income, 529 deductions, pension survivor choices), each with why, estimated effect, next step and an AI prompt.
+- Pension with start age, survivor %, COLA, and church-plan housing allowance designation; 529 plans with a 2026 state deduction/credit table; speaking and honoraria income with a set-aside recommendation; the 2026 non-itemizer charitable deduction.
 - Home you arrange yourself: choose, reorder and hide cards (monthly plan, paycheck, budget, tax set-aside, retirement outlook, housing check, emergency fund and more).
 - Monthly plan with linked sliders: lock what must stay fixed; the rest adjust, everyday spending first, using the real after-tax cost of pre-tax saving.
 - Budget in three levels (simple, standard 15 categories, detailed) sharing one set of numbers; housing lines can feed the housing allowance calculation.
@@ -15,7 +17,7 @@ A free planner for ministers: housing allowance (IRC §107), dual-status SECA, 4
 - Tap any term (or the ? next to a field) for a plain explanation with articles, videos and an "explain this" AI prompt. The Learn tab lists them all.
 - AI coach: prompts written in a stewardship lens, ready to paste into any AI, or chat in-app with your own key.
 - State tax: full Massachusetts rules, the nine states with no wage tax, or a flat rate for any other state.
-- `engine.js` holds all tax math and 32 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
+- `engine.js` holds all tax math and 41 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
 
 ## One-time setup
 

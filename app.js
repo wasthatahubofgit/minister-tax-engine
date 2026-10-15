@@ -20,6 +20,8 @@ const FIELDS = {
   minTradBal:50000, churchPlanPct:{v:100,pct:1}, minRothBal:10000, spTradBal:25000, spRothBal:5000,
   miscTradBal:15000, miscRothBal:0, brokerageBal:0, brokContrib:0, cashBal:5000, cashContrib:0, cashRate:{v:3,pct:1},
   whMinFed:0, whMinState:0, whSpFed:0, whSpState:0, estQuarterly:0, lastYearTax:0,
+  otherSEIncome:0, otherSEExpenses:0, mortgageInterest:0, bal529:0, contrib529:0, kids529:1, yrsToCollege:10, limit529:0,
+  pensionStartAge:0, pensionSurvivorPct:{v:50,pct:1}, pensionHousing:{v:true,bool:1},
   todaysDollars:{v:true,bool:1}, retSpend:120000, retHousing:40000, ssMin:27000, ssSp:18000, pension:0,
   pensionCOLA:{v:false,bool:1}, retYears:30, retReturn:{v:5,pct:1}, retVol:{v:12,pct:1}, inflation:{v:2.5,pct:1},
   dist:{v:'normal',sel:1}, brokTaxDrag:{v:15,pct:1}, drawOrder:{v:'roth-first',sel:1},
@@ -63,6 +65,7 @@ function readParams(){
   p.convBracket = parseFloat(raw.convBracket);
   p.convStopAge = 0;
   applyHousingLink(p);
+  p.cashGiving = Object.entries(VS.budget).filter(([k]) => k.startsWith('g_')).reduce((a, [, v]) => a + (+v || 0), 0) * 12;
   return p;
 }
 function applyHousingLink(p){
@@ -214,9 +217,30 @@ function renderToday(r){
     `<tr><td>Cash &amp; brokerage saving</td>${mfj?'<td></td>':''}<td></td><td class="r ${t.otherSaving>=0.5?'neg':''}">${t.otherSaving>=0.5?'−':''}${fmt(t.otherSaving)}</td></tr>` +
     `<tr class="total"><td>Left for spending &amp; giving</td>${mfj?'<td></td>':''}<td></td><td class="r">${fmt(t.householdNet)}</td></tr>` +
     `<tr><td class="muted">Per month</td>${mfj?'<td></td>':''}<td></td><td class="r">${fmt(t.householdNet/12)}</td></tr>`;
-  renderSetAside(r);
+  renderSetAside(r); renderOtherIncome(r);
 }
 
+function renderOtherIncome(r){
+  const el = $('otherIncomeOut'); if (!el) return;
+  const t = r.today, net = t.otherNet;
+  if (!(net > 0)) { el.innerHTML = '<p class="small muted" style="margin:0">Add expected speaking, wedding, funeral or writing income on the left to see what to set aside from it.</p>'; return; }
+  const p0 = Object.assign({}, r.p, { otherSEIncome: 0, otherSEExpenses: 0 });
+  const t0 = E.computeToday(p0);
+  const extra = t.setAside.due - t0.setAside.due, pct = extra / net;
+  const sepMax = Math.max(0, (net - t.otherSECA / 2) * 0.2);
+  const today = new Date().toISOString().slice(0, 10), next = t.setAside.dueDates.find(d => d >= today);
+  const d = s => new Date(s + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  el.innerHTML = `<div class="setaside">
+    ${'<div class="mini-kpis"><div><span class="eyebrow">Expected this year</span><b>' + fmt(net) + '</b></div><div><span class="eyebrow">Tax on it</span><b>' + fmt(extra) + '</b></div><div><span class="eyebrow">Set aside from each payment</span><b style="color:var(--accent)">' + Math.round(pct * 100) + '%</b></div></div>'}
+    <p class="small" style="margin:0">That includes ${fmt(t.otherSECA)} of self-employment tax plus income tax. Pick one way to handle it:</p>
+    <ol class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
+      <li><strong>Raise church withholding</strong> by about ${fmt(extra / 12)}/mo. Withholding counts as paid evenly through the year, so it covers irregular income without quarterly deadlines.</li>
+      <li><strong>Hold it in a high-yield savings account.</strong> Move ${Math.round(pct * 100)}% of each payment into a separate "tax" account, earn interest, and pay from it.</li>
+      <li><strong>Send quarterly payments</strong> of about ${fmt(extra / 4)} with Form 1040-ES${next ? `; next due ${d(next)}` : ''}.</li>
+      ${net >= 5000 ? `<li><strong>Consider a SEP-IRA or solo 401(k)</strong> for this income. Saving up to about ${fmt(sepMax)} there lowers income tax (not self-employment tax).</li>` : ''}
+    </ol>
+    <p class="small muted" style="margin:0">Keep receipts for travel and costs; only income after expenses is taxed.</p></div>`;
+}
 function renderSetAside(r){
   const a = r.today.setAside, owe = a.gap > 0;
   const today = new Date().toISOString().slice(0, 10);
@@ -232,6 +256,12 @@ function renderSetAside(r){
     <p class="small muted" style="margin:0">Estimate only. Underpayment penalties are generally avoided if you owe less than $1,000, or set aside at least 90% of this year's tax or 100% of last year's (110% above $150,000 of income).</p></div>`;
 }
 function renderGrow(r){
+  { const e = r.today.edu, code = E.TAX.state.code, rule = E.S529[code] || {}, nm = E.TAX.state.name;
+    $('note529').textContent = r.p.limit529 > 0 ? `Using your limit of ${fmt(r.p.limit529)} a year.`
+      : rule.x ? `${nm} gives no state tax break for 529 contributions.` : rule.u ? `${nm}'s 529 rules aren't built in yet. Enter your state's deduction limit to include it.`
+      : rule.full ? `${nm} lets you deduct all 529 contributions (estimate; check your state's plan rules).`
+      : rule.c ? `${nm} gives a tax credit, up to ${fmt(e.limit)} a year at your filing status (estimate; often only for the in-state plan).`
+      : `${nm} lets you deduct up to ${fmt(e.limit)} a year${rule.pb ? ` (${fmt(e.limit / Math.max(1, Math.round(r.p.kids529 || 1)))} per child)` : ''}. Estimate: many states require their own plan, and some have income limits.`; }
   const e = r.acc.end, total = E.sumB(e), Y = Math.round(r.p.yearsToRetire);
   const real = total / Math.pow(1 + r.p.inflation, Y);
   $('growKpis').innerHTML =
@@ -240,7 +270,9 @@ function renderGrow(r){
     kpi('Roth', fmt(e.roth), 'Tax-free, no RMDs') +
     kpi('Contributed', fmt(r.acc.contributed.pre + r.acc.contributed.roth + (r.acc.contributed.brok || 0)), `${fmt(r.acc.contributed.pre)} pre-tax`) +
     (() => { const mo = budgetMo() > 0 ? budgetMo() : r.today.householdNet / 12; const m = mo > 0 ? r.p.cashBal / mo : 0;
-      return kpi('Emergency fund', `${m.toFixed(1)} mo`, `${fmt(r.p.cashBal)} covers ${m.toFixed(1)} months of ${budgetMo() > 0 ? 'budgeted spending' : 'spending'}`, m >= 3 ? 'good' : m >= 1 ? 'warn' : 'bad'); })();
+      const edu = r.today.edu, yc = Math.round(r.p.yrsToCollege);
+      const k529 = (r.p.contrib529 > 0 || r.p.bal529 > 0) ? kpi('College (529)', fmt(r.acc.edu529End / Math.pow(1 + r.p.inflation, yc)), `in ${yc} yrs, today's dollars · state tax saved ${fmt(edu.saved)}/yr`, '') : '';
+      return k529 + kpi('Emergency fund', `${m.toFixed(1)} mo`, `${fmt(r.p.cashBal)} covers ${m.toFixed(1)} months of ${budgetMo() > 0 ? 'budgeted spending' : 'spending'}`, m >= 3 ? 'good' : m >= 1 ? 'warn' : 'bad'); })();
   $('growTable').innerHTML = `<tr><th>Bucket</th><th class="r">Today</th><th class="r">At retirement</th></tr>` +
     [['Minister church plan (housing-eligible)','mChurch'],['Other Traditional','mTrad'],['Spouse Traditional','sTrad'],['Roth (all)','roth'],['Taxable brokerage','brok']]
       .map(([l,k]) => `<tr><td>${l}</td><td class="r">${fmt(r.acc.path[0][k])}</td><td class="r">${fmt(e[k])}</td></tr>`).join('') +
@@ -263,10 +295,11 @@ function renderRetire(r){
   const y = ret.rows[0];
   if (!y) { $('y1Flow').innerHTML = ''; return; }
   $('y1Label').textContent = `${y.calYear} · age ${y.mAge}${r.p.status==='MFJ'?' / '+y.sAge:''} · nominal`;
-  const taxableTrad = y.churchDist - y.housingExcluded + y.otherTradDist;
+  const exclPension = Math.min(y.allow || 0, y.pensElig || 0), exclChurch = Math.max(0, y.housingExcluded - exclPension);
+  const taxableTrad = y.churchDist - exclChurch + y.otherTradDist;
   const items = [
     ['Social Security & pension', y.ss + y.pension, 'var(--c-fixed)'],
-    ['Church plan, housing-excluded (tax-free)', y.housingExcluded, 'var(--c-church)'],
+    ['Church plan, housing-excluded (tax-free)', exclChurch, 'var(--c-church)'],
     ['Roth withdrawals (tax-free)', y.rothDist, 'var(--c-roth)'],
     ['Brokerage withdrawals', y.brokDist, 'var(--c-brok)'],
     ['Taxable Traditional (incl. RMD ' + fmt(y.rmd) + ')', taxableTrad, 'var(--c-draw)'],
@@ -274,6 +307,7 @@ function renderRetire(r){
   const gross = items.reduce((a, [, v]) => a + v, 0) || 1;
   $('y1Flow').innerHTML = items.map(([l, v, c]) => `<div class="flow-row"><span>${l}</span><span class="num">${fmt(v)}</span><div class="meter"><i style="width:${(v/gross*100).toFixed(1)}%;background:${c}"></i></div></div>`).join('') +
     `<table class="ledger" style="margin-top:6px">
+      ${exclPension > 0 ? `<tr><td class="muted">Of the pension, tax-free as housing allowance</td><td class="r muted">${fmt(exclPension)}</td></tr>` : ''}
       <tr><td>Gross cash in</td><td class="r">${fmt(gross)}</td></tr>
       <tr><td>Federal tax (taxable SS ${fmt(y.taxableSS)})</td><td class="r neg">${y.fedTax>=0.5?'−':''}${fmt(y.fedTax)}</td></tr>
       <tr><td>${esc(E.TAX.state.name)} tax</td><td class="r neg">${y.stateTax>=0.5?'−':''}${fmt(y.stateTax)}</td></tr>
@@ -289,7 +323,7 @@ function renderYears(r){
   const head = ['Yr','Year','Age','Spend','SS + pension','RMD','Housing-free','Taxable trad','Roth draw','Brokerage','Conversion','Fed tax','State tax','End balance',"End (today's $)"];
   const rows = r.ret.rows.map(y => [
     y.i, y.calYear, mfj ? `${y.mAge}/${y.sAge}` : y.mAge, fmt(y.spend), fmt(y.ss + y.pension), fmt(y.rmd), fmt(y.housingExcluded),
-    fmt(y.churchDist - y.housingExcluded + y.otherTradDist), fmt(y.rothDist), fmt(y.brokDist), fmt(y.conv), fmt(y.fedTax), fmt(y.stateTax),
+    fmt(y.churchDist - Math.max(0, y.housingExcluded - Math.min(y.allow || 0, y.pensElig || 0)) + y.otherTradDist), fmt(y.rothDist), fmt(y.brokDist), fmt(y.conv), fmt(y.fedTax), fmt(y.stateTax),
     y.shortfall ? `<span class="neg">Short ${fmt(y.shortfall)}</span>` : fmt(y.endTotal), fmt(y.endTotal * y.realFactor)]);
   $('yearTable').innerHTML = `<tr>${head.map((h,i)=>`<th class="${i>2?'r':''}">${h}</th>`).join('')}</tr>` +
     rows.map(c => `<tr>${c.map((v,i)=>`<td class="${i>2?'r':''}">${v}</td>`).join('')}</tr>`).join('');
@@ -365,7 +399,7 @@ function drawCharts(r){
 }
 // Per-year tax attribution (same incremental method the engine uses for totals)
 function taxSplit(y, r){
-  const ctx = { ss: y.ss, pension: y.pension, allow: y.housingExcluded,
+  const ctx = { ss: y.ss, pension: y.pension, allow: y.allow || 0, pensElig: y.pensElig || 0,
     status: y.status, ages: y.status === 'MFJ' ? [y.mAge, y.sAge] : [y.ministerAlive ? y.mAge : y.sAge], calYear: y.calYear,
     scale: r.P.scale0 * Math.pow(1 + r.P.inflation, y.i - 1), seniorExt: r.P.seniorExtended };
   const t = pl => E.yearTax(Object.assign({ churchDist:0, otherTradDist:0, conv:0, rothDist:0, brokDist:0 }, pl), ctx).total;

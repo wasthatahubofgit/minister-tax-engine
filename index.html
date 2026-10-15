@@ -304,6 +304,14 @@ body.simple .adv{display:none!important}
 .th-body p{margin:0 0 6px} .th-body ol{margin:0 0 6px;padding-left:20px;display:grid;gap:4px}
 .th-tip{color:var(--muted)}
 
+
+.sg-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.sg-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:4px;background:var(--surface)}
+.sg-item p{margin:0;font-size:.88rem}
+.sg-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sg-impact{color:var(--ink);font-weight:500}
+.sg-list.muted .sg-item{opacity:.7}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -386,6 +394,10 @@ body.simple .adv{display:none!important}
         <div class="field"><label for="minPreTax">403(b) pre-tax deferral</label><input type="number" id="minPreTax" step="500"></div>
         <div class="field"><label for="minRoth403b">403(b) Roth deferral<small>Shares the deferral limit</small></label><input type="number" id="minRoth403b" step="500"></div>
         <div class="field"><label for="minRothIRA">Roth IRA contribution</label><input type="number" id="minRothIRA" step="500"></div>
+        <div class="group-title"><h3>Other income</h3></div>
+        <div class="field"><label for="otherSEIncome">Speaking, weddings, honoraria (per year)<small>Expected this year, outside your salary</small></label><input type="number" id="otherSEIncome" step="100"></div>
+        <div class="field"><label for="otherSEExpenses">Costs of earning it (per year)<small>Travel, supplies, fees</small></label><input type="number" id="otherSEExpenses" step="100"></div>
+        <div class="field adv"><label for="mortgageInterest">Mortgage interest (per year)<small>Used to check whether itemizing helps</small></label><input type="number" id="mortgageInterest" step="100"></div>
 
         <div class="group-title spouse-only"><h3>Spouse (W-2)</h3></div>
         <div class="field spouse-only"><label for="spGross">W-2 gross wages</label><input type="number" id="spGross" step="100"></div>
@@ -412,6 +424,10 @@ body.simple .adv{display:none!important}
           </fieldset>
           <div id="setAsideOut"></div>
         </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Other income: what to set aside</h2><button type="button" class="term-q" data-term="sideincome" aria-label="About other income">?</button></div>
+        <div id="otherIncomeOut"></div>
       </div>
       <div class="card">
         <div class="card-h"><h2>Dual-status math</h2><span class="muted small">vs. the same pay as a W-2 employee</span></div>
@@ -451,6 +467,13 @@ body.simple .adv{display:none!important}
         <div class="field adv"><label for="cashRate">Interest on cash (%)</label><input type="number" id="cashRate" step="0.1"></div>
         <div class="field"><label for="brokerageBal">Taxable brokerage</label><input type="number" id="brokerageBal" step="1000"></div>
         <div class="field"><label for="brokContrib">Added to brokerage (per year)</label><input type="number" id="brokContrib" step="100"></div>
+        <div class="group-title"><h3>College (529)</h3></div>
+        <div class="field"><label for="contrib529">Added to 529 plans (per year)</label><input type="number" id="contrib529" step="100"></div>
+        <div class="field"><label for="bal529">529 balance today</label><input type="number" id="bal529" step="500"></div>
+        <div class="field"><label for="kids529">Children with a 529</label><input type="number" id="kids529" step="1"></div>
+        <div class="field"><label for="yrsToCollege">Years until the first child starts college</label><input type="number" id="yrsToCollege" step="1"></div>
+        <div class="field adv"><label for="limit529">My state's 529 deduction limit<small>Leave 0 to use the built-in table</small></label><input type="number" id="limit529" step="100"></div>
+        <p class="small muted" id="note529" style="margin:0"></p>
       </fieldset>
     </div>
     <div class="stack">
@@ -474,8 +497,11 @@ body.simple .adv{display:none!important}
         <div class="field"><label for="retHousing">Housing allowance in retirement<small>Tax-free church-plan draws, §107</small></label><input type="number" id="retHousing" step="1000"></div>
         <div class="field"><label for="ssMin">Minister Social Security<small>0 if exempt via Form 4361</small></label><input type="number" id="ssMin" step="500"></div>
         <div class="field spouse-only"><label for="ssSp">Spouse Social Security</label><input type="number" id="ssSp" step="500"></div>
-        <div class="field"><label for="pension">Pension / other income</label><input type="number" id="pension" step="500"></div>
+        <div class="field"><label for="pension">Pension (per year)<small>From a denominational or employer pension</small></label><input type="number" id="pension" step="500"></div>
+        <div class="field"><label for="pensionStartAge">Pension starts at minister age<small>0 = when you retire</small></label><input type="number" id="pensionStartAge" step="1"></div>
+        <label class="check"><input type="checkbox" id="pensionHousing"><span>Paid by a church plan that designates housing allowance<br><small class="muted">Then it can come out tax-free, up to your housing costs</small></span></label>
         <label class="check adv"><input type="checkbox" id="pensionCOLA"><span>Pension has a cost-of-living raise</span></label>
+        <div class="field adv spouse-only"><label for="pensionSurvivorPct">Survivor benefit (% of pension)<small>What your spouse keeps if you die first</small></label><input type="number" id="pensionSurvivorPct" step="5"></div>
         <div class="group-title"><h3>Market</h3></div>
         <div class="field"><label for="retYears">Years in retirement</label><input type="number" id="retYears" step="1"></div>
         <div class="field"><label for="retReturn">Mean return (%)</label><input type="number" id="retReturn" step="0.1"></div>
@@ -650,6 +676,7 @@ body.simple .adv{display:none!important}
 <script src="sliders.js"></script>
 <script src="ai.js"></script>
 <script src="plan.js"></script>
+<script src="suggest.js"></script>
 <script src="home.js"></script>
 <script src="guide.js"></script>
 </body>

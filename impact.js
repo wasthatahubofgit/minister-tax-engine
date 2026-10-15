@@ -48,7 +48,7 @@ let base = null, baseInputs = null, field = null, pinned = false;
 
 const SAVE_FIELDS = { minPreTax: 'your 403(b) pre-tax', minRoth403b: 'your Roth 403(b)', minRothIRA: 'your Roth IRA',
   spPreTax: "your spouse's pre-tax plan", spRoth401k: "your spouse's Roth plan", spRothIRA: "your spouse's Roth IRA",
-  cashContrib: 'cash savings', brokContrib: 'your brokerage account' };
+  cashContrib: 'cash savings', brokContrib: 'your brokerage account', contrib529: 'college savings (529)' };
 const SKIP = /^(tx\d+|scenName|aiKey|aiModel|aiProvider|chatInput|learnSearch|wz-|sl-|a[A-Z]|v[P]|n[VP])/;
 function labelFor(id){
   const l = document.querySelector(`label[for="${id}"]`);
@@ -93,6 +93,7 @@ function renderStory(r, now){
     const more = dSave > 0;
     html = `<p><strong>${more ? 'Saving' : 'Saving'} ${fmt(Math.abs(dSave))} ${more ? 'more' : 'less'} a month</strong> in ${SAVE_FIELDS[field]} changes your monthly spending money by <strong>${dTake >= 0 ? '+' : '−'}${fmt(Math.abs(dTake))}/mo</strong> today`;
     if (field === 'cashContrib') html += `. Cash savings isn't counted as retirement income, but it protects you from surprises.`;
+    else if (field === 'contrib529') html += `. It isn't retirement money, but your state may give a tax break: about ${fmt(r.today.edu.saved)}/yr at this level.`;
     else if (Y > 0) {
       html += ` and retirement income by <strong>${dRet >= 0 ? '+' : '−'}${fmt(Math.abs(dRet))}/mo</strong> for ${n} years <span class="muted">(today's dollars, before tax)</span>.`;
       const putIn = Math.abs(dSave) * 12 * Y, getOut = Math.abs(dRet) * 12 * n;

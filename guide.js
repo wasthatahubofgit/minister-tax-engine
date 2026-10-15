@@ -107,8 +107,10 @@ const STEPS = [
       ${wf('minComp', `Total yearly pay from the church, <em>including</em> any ${T('housing', 'housing allowance')}`, { max: 250000, step: 500, per: '/yr', help: 'Your full salary package before taxes. Leave out health insurance and retirement contributions the church makes for you.',
         unsure: { where: "Your pay letter or the church's yearly compensation resolution. Or take one pay stub's gross pay (before any deductions) and multiply by the number of paychecks in a year.", typical: 60000, typicalLabel: 'a typical pastor salary' } })}
       ${wf('housingDesignated', 'How much of that the church designates as housing allowance', { max: 120000, step: 500, per: '/yr', help: "Enter 0 if you don't have one.",
-        unsure: { where: "It's usually in the church board or council minutes, or your pay letter, called a \"housing allowance\" or \"parsonage allowance.\" If it isn't written down anywhere, ask your treasurer: it must be designated in advance to count.", typical: () => Math.round(num('minComp') * 0.35 / 500) * 500, typicalLabel: 'about a third of pay' } })}`,
-    save: () => { draft.minComp = num('minComp'); draft.housingDesignated = num('housingDesignated'); } },
+        unsure: { where: "It's usually in the church board or council minutes, or your pay letter, called a \"housing allowance\" or \"parsonage allowance.\" If it isn't written down anywhere, ask your treasurer: it must be designated in advance to count.", typical: () => Math.round(num('minComp') * 0.35 / 500) * 500, typicalLabel: 'about a third of pay' } })}
+      ${wf('otherSEIncome', `Expected income this year from speaking, weddings, funerals or writing (${T('sideincome', 'side income')})`, { max: 50000, step: 100, per: '/yr', help: 'Honoraria and fees outside your salary. Enter 0 if none.',
+        unsure: { where: 'Add up what you expect from guest preaching, conferences, weddings, funerals, book royalties and similar this year. Last year\'s 1099 forms are a good starting point.', typical: 0, typicalLabel: '0 for now' } })}`,
+    save: () => { draft.minComp = num('minComp'); draft.housingDesignated = num('housingDesignated'); draft.otherSEIncome = num('otherSEIncome'); } },
   { id: 'housing', title: 'What your housing really costs', body: () => `
       <p class="small">Only the smallest of three numbers is tax-free: the designated allowance, your ${T('actual', 'actual housing costs')}, and your home's ${T('frv', 'fair rental value')}.</p>
       ${wf('housingActual', 'Actual housing costs per year', { max: 120000, step: 500, per: '/yr', help: 'Rent or mortgage, utilities, insurance, property tax, furniture, repairs.',
@@ -159,8 +161,12 @@ const STEPS = [
       ${wf('brokerageBal', `Other investments (${T('brokerage', 'brokerage')}), not retirement accounts`, { max: 1000000, step: 1000,
         unsure: { where: 'A regular investment account at Fidelity, Vanguard, Schwab and similar. Not a 403(b) or IRA.', typical: 0, typicalLabel: '0' } })}
       ${wf('m_brokContrib', 'Added to those investments each month', { max: 3000, step: 10, per: '/mo', get: () => Math.round(draft.brokContrib / 12),
-        unsure: { where: 'Automatic investments into that account.', typical: 0, typicalLabel: '0' } })}`,
-    save: () => { draft.cashBal = num('cashBal'); draft.brokerageBal = num('brokerageBal'); draft.cashContrib = num('m_cashContrib') * 12; draft.brokContrib = num('m_brokContrib') * 12; } },
+        unsure: { where: 'Automatic investments into that account.', typical: 0, typicalLabel: '0' } })}
+      ${wf('m_contrib529', `Saved each month for children's college (${T('college529', '529 plan')})`, { max: 2000, step: 10, per: '/mo', get: () => Math.round(draft.contrib529 / 12),
+        unsure: { where: 'Your 529 plan website shows automatic contributions. Many states give a tax break for these. Enter 0 if none.', typical: 0, typicalLabel: '0' } })}
+      ${wf('bal529', '529 balance today', { max: 300000, step: 500, unsure: { where: 'Your latest 529 statement.', typical: 0, typicalLabel: '0' } })}`,
+    save: () => { draft.cashBal = num('cashBal'); draft.brokerageBal = num('brokerageBal'); draft.cashContrib = num('m_cashContrib') * 12; draft.brokContrib = num('m_brokContrib') * 12;
+      draft.contrib529 = num('m_contrib529') * 12; draft.bal529 = num('bal529'); } },
   { id: 'budget', title: 'A rough monthly budget', body: () => {
       const has = Object.values(draft.budget || {}).some(v => +v > 0) && !draft._budgetFromWizard && !draft.budgetExample;
       if (has) return `<p>You already have a budget saved. You can adjust it any time on the Budget page.</p>`;
@@ -188,11 +194,15 @@ const STEPS = [
         unsure: { where: 'Create a free account at <a href="https://www.ssa.gov/myaccount/" target="_blank" rel="noopener">ssa.gov/myaccount</a>. Your statement shows the monthly benefit at different ages. Use the amount at your full retirement age.', typical: () => Math.min(3500, Math.round(draft.minComp * 0.4 / 12 / 25) * 25), typicalLabel: 'a rough guess from your pay' } })}
       ${draft.__status === 'MFJ' ? wf('m_ssSp', "Your spouse's expected Social Security", { max: 5000, step: 25, per: '/mo', get: () => Math.round(draft.ssSp / 12),
         unsure: { where: 'Your spouse can check at ssa.gov/myaccount too. A spouse with little work history may still receive up to half of your benefit.', typical: () => Math.round(num('m_ssMin') * 0.5 / 25) * 25, typicalLabel: 'half of yours' } }) : ''}
+      ${wf('m_pension', `Expected ${T('pension', 'pension')}, if any`, { max: 8000, step: 25, per: '/mo', get: () => Math.round(draft.pension / 12), help: 'From a denominational or employer pension. Enter 0 if none.',
+        unsure: { where: 'Your pension board or plan sends a yearly benefit statement with an estimated monthly amount at retirement age.', typical: 0, typicalLabel: '0' } })}
+      <label class="check"><input type="checkbox" id="wzPensionHousing" ${draft.pensionHousing ? 'checked' : ''}><span>My pension is from a church plan that designates housing allowance</span></label>
       ${wf('m_retHousing', `Housing allowance you expect to take from your church plan in retirement`, { max: 8000, step: 50, per: '/mo', get: () => Math.round(draft.retHousing / 12), help: '0 if you have no church plan.',
         unsure: { where: 'Roughly what housing will cost you in retirement. Your church plan provider designates it; ask them how it works for retirees.', typical: () => Math.round(Math.min(draft.housingDesignated, draft.housingActual) / 12 / 50) * 50, typicalLabel: 'your housing costs today' } })}`; },
     save: () => { const ra = num('retireAge'); draft.yearsToRetire = Math.max(0, ra - draft.minAge); draft.retYears = Math.max(5, num('untilAge') - ra);
       draft.retSpend = num('m_retSpend') * 12; draft.ssMin = num('m_ssMin') * 12; if (draft.__status === 'MFJ') draft.ssSp = num('m_ssSp') * 12;
-      draft.retHousing = num('m_retHousing') * 12; draft.todaysDollars = true; } },
+      draft.retHousing = num('m_retHousing') * 12; draft.todaysDollars = true;
+      draft.pension = num('m_pension') * 12; draft.pensionHousing = $('wzPensionHousing').checked; } },
   { id: 'watch', title: 'What would you like to keep an eye on?', body: () => `
       <p class="small">These stay at the top of the screen. When you change any number, you'll see how each one moves.</p>
       <div class="wz-checks">${Object.entries(A.FIGURES).map(([k, d]) => `<label class="check"><input type="checkbox" name="wzWatch" value="${k}" ${A.getWatch().includes(k) ? 'checked' : ''}><span>${esc(d.label)} ${T(d.term, '?')}</span></label>`).join('')}</div>

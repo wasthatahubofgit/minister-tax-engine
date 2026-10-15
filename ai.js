@@ -35,7 +35,7 @@ function situation(){
 - Saving now: ${fmt((p.minPreTax + p.minRoth403b + p.minRothIRA + (mfj ? p.spPreTax + p.spRoth401k + p.spRothIRA : 0)) / 12)}/mo in total (pre-tax ${fmt((p.minPreTax + (mfj ? p.spPreTax : 0)) / 12)}/mo, Roth ${fmt((p.minRoth403b + p.minRothIRA + (mfj ? p.spRoth401k + p.spRothIRA : 0)) / 12)}/mo)
 - Take-home pay about ${fmt(t.householdNet / 12)}/mo. Self-employment tax ${fmt(t.seca.total)}/yr. Net effect of minister tax rules vs an ordinary employee: ${fmt(t.netAdvantage)}/yr
 - Retirement in ${Y} years; savings then about ${fmt(A.FIGURES.atRet.v(r))} in today's dollars, enough for about ${fmt(A.retIncomeMo(r))}/mo for ${Math.round(p.retYears)} years (today's dollars, before tax), plus Social Security of about ${fmt((p.ssMin + (mfj ? p.ssSp : 0)) / 12)}/mo
-- Hoped-for retirement spending ${fmt(p.retSpend / 12)}/mo${p.todaysDollars ? " in today's dollars" : ''}
+- Hoped-for retirement spending ${fmt(p.retSpend / 12)}/mo${p.todaysDollars ? " in today's dollars" : ''}${p.pension > 0 ? `\n- Expected pension ${fmt(p.pension / 12)}/mo${p.pensionHousing ? ' (church plan; can be designated housing allowance)' : ''}` : ''}${t.otherNet > 0 ? `\n- Other income (speaking, honoraria) about ${fmt(t.otherNet)}/yr` : ''}${p.contrib529 > 0 ? `\n- Saving ${fmt(p.contrib529 / 12)}/mo for children's college (529)` : ''}${A.budgetSumOf ? `\n- Giving about ${fmt(A.budgetSumOf('giving'))}/mo` : ''}
 - Chance the money lasts (1,000 simulated markets): ${A.pctf(r.mc.successRate)}. Lifetime retirement taxes ${fmt(r.ret.totalTax)}. Expected legacy ${fmt(A.FIGURES.legacy.v(r))} in today's dollars${calling ? `\n- What I sense I'm called to now: "${calling}"` : ''}`;
 }
 
@@ -178,4 +178,5 @@ const savedProv = A.store.get('mtw.aiprovider', 'anthropic');
 if (PROVIDERS[savedProv]) $('aiProvider').value = savedProv;
 loadKey(); renderChat(false);
 A.coachPrompt = id => buildPrompt(PROMPTS.find(p => p.id === id));
+A.coachCustom = ask => `${LENS}\n\n${situation()}\n\nWHAT I'D LIKE\n${ask}`;
 })();

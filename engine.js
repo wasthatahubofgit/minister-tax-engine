@@ -88,6 +88,36 @@ function stateConfig(code, flatRate, taxesSS){
 
 const clamp0 = x => (x > 0 ? x : 0);
 
+/* ---------------------------------------------------------------------
+   529 college savings: state income tax benefit for contributions (2026).
+   Sources: taxpayers.net 2026 state registry; educationdata.org (Jul 2026).
+   d = deduction limit [single, MFJ]; pb = per beneficiary; full = all
+   contributions deductible; c = credit {rate, max:[single, MFJ]};
+   x = no benefit (no plan, no deduction, or no income tax).
+   Many states require their own plan and some have income limits, so the
+   app labels this an estimate and lets people override the limit.
+   --------------------------------------------------------------------- */
+const S529 = {
+  AL:{d:[5000,10000],pb:1}, AK:{x:1}, AZ:{d:[2000,4000],pb:1}, AR:{d:[5000,10000]}, CA:{x:1}, CO:{d:[26200,39200],pb:1},
+  CT:{d:[5000,10000]}, DE:{d:[1000,2000]}, DC:{u:1}, FL:{x:1}, GA:{d:[4000,8000],pb:1}, HI:{x:1}, ID:{d:[6000,12000]},
+  IL:{d:[10000,20000]}, IN:{c:{rate:0.2,max:[1500,1500]}}, IA:{d:[6100,6100],pb:1}, KS:{d:[3000,6000],pb:1}, KY:{x:1},
+  LA:{d:[2400,4800],pb:1}, ME:{d:[1000,1000],pb:1}, MD:{d:[2500,5000],pb:1}, MA:{d:[1000,2000]}, MI:{d:[5000,10000]},
+  MN:{d:[1500,3000]}, MS:{d:[10000,20000]}, MO:{d:[8000,16000]}, MT:{d:[3000,6000]}, NE:{d:[5000,10000]}, NV:{x:1},
+  NH:{x:1}, NJ:{d:[10000,10000]}, NM:{full:1}, NY:{d:[5000,10000]}, NC:{x:1}, ND:{d:[5000,10000]}, OH:{d:[4000,4000],pb:1},
+  OK:{d:[10000,20000]}, OR:{c:{rate:1,max:[190,380]}}, PA:{d:[19000,38000],pb:1}, RI:{d:[500,1000]}, SC:{full:1}, SD:{x:1},
+  TN:{x:1}, TX:{x:1}, UT:{c:{rate:0.0445,max:[113.92,227.84]},pb:1}, VT:{c:{rate:0.1,max:[250,500]},pb:1}, VA:{d:[4000,4000]},
+  WA:{x:1}, WV:{full:1}, WI:{d:[5280,5280],pb:1}, WY:{x:1}
+};
+function state529(code, status, contrib, kids, override){
+  const r = S529[code] || { u: 1 }, i = status === 'MFJ' ? 1 : 0, k = Math.max(1, Math.round(kids || 1));
+  const out = { type: 'none', limit: 0, ded: 0, credit: 0, known: !r.u };
+  if (override > 0) { out.type = 'ded'; out.limit = override; out.ded = Math.min(contrib, override); return out; }
+  if (r.full) { out.type = 'ded'; out.limit = Infinity; out.ded = contrib; }
+  else if (r.d) { out.type = 'ded'; out.limit = r.d[i] * (r.pb ? k : 1); out.ded = Math.min(contrib, out.limit); }
+  else if (r.c) { out.type = 'credit'; const max = r.c.max[i] * (r.pb ? k : 1); out.limit = max; out.credit = Math.min(contrib * r.c.rate, max); }
+  return out;
+}
+
 /* ---------------- Federal pieces ---------------- */
 
 // Progressive bracket tax; `scale` inflates bracket tops for future years.
@@ -118,10 +148,10 @@ function seniorDeduction(magi, status, count65, calYear, extended, cfg = TAX) {
 }
 
 // Federal income tax on AGI. ages = array of ages of filers (1 or 2).
-function fedIncomeTax(agi, status, ages, calYear, scale = 1, seniorExtended = false, cfg = TAX) {
+function fedIncomeTax(agi, status, ages, calYear, scale = 1, seniorExtended = false, cfg = TAX, extraDed = 0) {
   const count65 = ages.filter(a => a >= 65).length;
   const ded = cfg.stdDed[status] * scale + count65 * cfg.addl65[status] * scale
-            + seniorDeduction(agi, status, count65, calYear, seniorExtended, cfg);
+            + seniorDeduction(agi, status, count65, calYear, seniorExtended, cfg) + extraDed;
   const taxable = clamp0(agi - ded);
   const { tax, marginal } = bracketTax(taxable, status, scale, cfg);
   return { tax, taxable, deduction: ded, marginal };
@@ -205,28 +235,40 @@ function computeToday(p, cfg = TAX) {
   const excludable = Math.min(p.housingDesignated, p.housingActual, p.housingFRV);
   const housingExcess = clamp0(p.housingDesignated - excludable);
 
-  const seca = ministerSECA(p.minComp, p.minPreTax, cfg);
+  // Other self-employment income (honoraria, speaking, weddings, writing): net of expenses.
+  // It is subject to SE tax and income tax under either pay arrangement, so it is added to both
+  // the minister and W-2 comparison scenarios.
+  const otherNet = clamp0((p.otherSEIncome || 0) - (p.otherSEExpenses || 0));
+  const seca = ministerSECA(p.minComp + otherNet, p.minPreTax, cfg);
+  const secaSalary = ministerSECA(p.minComp, p.minPreTax, cfg);
+  const otherSECA = seca.total - secaSalary.total;
   const spFICA = employeeFICA(spGross, cfg);
+  // Non-itemizer cash gifts to charity: up to $1,000 single / $2,000 joint, from 2026 (OBBBA §170(p))
+  const giveDed = cfg.year >= 2026 ? Math.min(p.cashGiving || 0, mfj ? 2000 : 1000) : 0;
+  // 529 contributions: state deduction or credit only
+  const c529 = p.contrib529 || 0;
+  const edu = state529(cfg.state.code, st, c529, p.kids529, p.limit529);
+  const st529 = (inc, payDed) => clamp0(stateTax(clamp0(inc - edu.ded), st, ages, payDed, 1, cfg) - edu.credit);
 
   function ministerScenario(excl) {
     const addlMed = additionalMedicare(seca.seEarn + spGross, st, cfg);
     const seDed = seca.total / 2;                                         // §164(f)
-    const minAGIpart = clamp0(p.minComp - excl - p.minPreTax - seDed);
+    const minAGIpart = clamp0(p.minComp - excl - p.minPreTax - seDed + otherNet);
     const spAGIpart = clamp0(spGross - spPre);
     const agi = minAGIpart + spAGIpart;
-    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg);
-    const stInc = clamp0(p.minComp - (cfg.state.conformsTo107 ? excl : 0) - p.minPreTax) + spAGIpart;
+    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg, giveDed);
+    const stInc = clamp0(p.minComp - (cfg.state.conformsTo107 ? excl : 0) - p.minPreTax + otherNet) + spAGIpart;
     const stPayroll = Math.min(cfg.state.payrollDedCap, seca.total) + (mfj ? Math.min(cfg.state.payrollDedCap, spFICA) : 0);
-    const stTax = stateTax(stInc, st, ages, stPayroll, 1, cfg);
+    const stTax = st529(stInc, stPayroll);
     return { agi, minAGIpart, spAGIpart, fed, stTax, addlMed, seDed, incomeTax: fed.tax + stTax };
   }
   function w2Scenario() {
     const minFICA = employeeFICA(p.minComp, cfg);
-    const addlMed = additionalMedicare(p.minComp + spGross, st, cfg);
-    const agi = clamp0(p.minComp - p.minPreTax) + clamp0(spGross - spPre);
-    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg);
-    const stPayroll = Math.min(cfg.state.payrollDedCap, minFICA) + (mfj ? Math.min(cfg.state.payrollDedCap, spFICA) : 0);
-    const stTax = stateTax(agi, st, ages, stPayroll, 1, cfg);
+    const addlMed = additionalMedicare(p.minComp + otherNet * cfg.seFactor + spGross, st, cfg);
+    const agi = clamp0(p.minComp - p.minPreTax) + clamp0(otherNet - otherSECA / 2) + clamp0(spGross - spPre);
+    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg, giveDed);
+    const stPayroll = Math.min(cfg.state.payrollDedCap, minFICA + otherSECA) + (mfj ? Math.min(cfg.state.payrollDedCap, spFICA) : 0);
+    const stTax = st529(agi, stPayroll);
     return { minFICA, addlMed, agi, fed, stTax, incomeTax: fed.tax + stTax };
   }
 
@@ -234,7 +276,7 @@ function computeToday(p, cfg = TAX) {
   const net = excl => {
     const m = ministerScenario(excl);
     const shield = w2.incomeTax - m.incomeTax;
-    const extraPayroll = (seca.total + m.addlMed) - (w2.minFICA + w2.addlMed);
+    const extraPayroll = (seca.total + m.addlMed) - (w2.minFICA + otherSECA + w2.addlMed);
     return { m, shield, extraPayroll, net: shield - extraPayroll };
   };
 
@@ -243,7 +285,7 @@ function computeToday(p, cfg = TAX) {
   const noSEDed = (() => {
     const m = cur.m;
     const agi = m.agi + m.seDed;
-    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg);
+    const fed = fedIncomeTax(agi, st, ages, cfg.year, 1, false, cfg, giveDed);
     return fed.tax + m.stTax;
   })();
   const shieldSEDed = noSEDed - cur.m.incomeTax;
@@ -264,7 +306,7 @@ function computeToday(p, cfg = TAX) {
   const shareMin = m.agi > 0 ? m.minAGIpart / m.agi : 1;
   const addlMedMinShare = (seca.seEarn + spGross) > 0 ? m.addlMed * seca.seEarn / (seca.seEarn + spGross) : 0;
   const minister = {
-    gross: p.minComp,
+    gross: p.minComp + otherNet,
     payroll: seca.total + addlMedMinShare,
     incomeTax: m.incomeTax * shareMin,
     preTax: p.minPreTax,
@@ -280,7 +322,7 @@ function computeToday(p, cfg = TAX) {
   };
   spouse.net = spouse.gross - spouse.payroll - spouse.incomeTax - spouse.preTax - spouse.roth;
   // After-tax saving outside retirement plans (cash reserve, brokerage) comes out of take-home
-  const otherSaving = (p.cashContrib || 0) + (p.brokContrib || 0);
+  const otherSaving = (p.cashContrib || 0) + (p.brokContrib || 0) + c529;
   const takeHome = minister.net + spouse.net;          // after taxes and retirement saving
 
   // Warnings
@@ -311,6 +353,8 @@ function computeToday(p, cfg = TAX) {
     seDeduction: m.seDed, breakEven, marginalFed: m.fed.marginal, minister, spouse,
     takeHome, otherSaving, householdNet: takeHome - otherSaving, warnings,
     setAside: taxSetAside(m, seca, p, mfj),
+    otherNet, otherSECA, giveDed,
+    edu: Object.assign(edu, { contrib: c529, saved: clamp0(stateTax(clamp0(m.agi), st, ages, 0, 1, cfg) - st529(clamp0(m.agi), 0)) }),
     limits: { minDeferral: minDefLim, spDeferral: mfj ? deferralLimit(p.spAge, cfg) : 0 }
   };
 }
@@ -358,7 +402,8 @@ function accumulate(p) {
     roth:    p.minRothBal + (mfj ? p.spRothBal : 0) + p.miscRothBal,
     brok:    p.brokerageBal
   };
-  let cash = p.cashBal || 0;
+  let cash = p.cashBal || 0, b529 = p.bal529 || 0, edu529End = b529;
+  const Yc = Math.max(0, Math.round(p.yrsToCollege || 0));
   const path = [{ year: 0, ...b, total: sumB(b) }];
   let contributed = { pre: 0, roth: 0 };
   for (let y = 1; y <= Y; y++) {
@@ -371,10 +416,13 @@ function accumulate(p) {
     b.roth    = b.roth    * (1 + r) + rothC;
     b.brok    = b.brok    * (1 + r * (1 - p.brokTaxDrag)) + (p.brokContrib || 0) * f;
     cash      = cash * (1 + (p.cashRate || 0)) + (p.cashContrib || 0) * f;
+    if (y <= Yc) { b529 = b529 * (1 + r) + (p.contrib529 || 0) * f; if (y === Yc) edu529End = b529; }
     contributed.pre += minPre + spPre; contributed.roth += rothC; contributed.brok = (contributed.brok || 0) + (p.brokContrib || 0) * f;
     path.push({ year: y, ...b, total: sumB(b) });
   }
-  return { end: { ...b }, path, contributed, cashEnd: cash };
+  if (Yc > Y) { for (let y = Y + 1; y <= Yc; y++) b529 = b529 * (1 + r) + (p.contrib529 || 0); edu529End = b529; }
+  if (Yc === 0) edu529End = b529;
+  return { end: { ...b }, path, contributed, cashEnd: cash, edu529End };
 }
 function sumB(b) { return b.mChurch + b.mTrad + b.sTrad + b.roth + b.brok; }
 
@@ -410,6 +458,7 @@ function runRetirement(start, P, returns, cfg = TAX) {
       status = 'Single';
       ssSp = Math.max(ssMin, ssSp); ssMin = 0;                       // survivor keeps larger benefit
       spend *= P.survivorSpendPct;
+      pension *= (P.pensionSurvivorPct ?? 1);                       // joint-and-survivor election
       hAllow = 0;                                                   // §107 ends with the minister
     }
     const ages = status === 'MFJ' ? [mAge, sAge] : [ministerAlive ? mAge : sAge];
@@ -417,6 +466,9 @@ function runRetirement(start, P, returns, cfg = TAX) {
     const allow = housingOn ? hAllow : 0;
 
     const ss = ssMin + ssSp;
+    const pensionPaid = (!ministerAlive || mAge >= (P.pensionStartAge || 0)) ? pension : 0;
+    // Church-plan pension designated as housing allowance uses the allowance first (Pub. 517)
+    const pensElig = ministerAlive && P.pensionHousing ? pensionPaid : 0;
     const startBal = { ...b };
 
     // 2. RMDs
@@ -431,14 +483,14 @@ function runRetirement(start, P, returns, cfg = TAX) {
 
     // plan accumulator
     const plan = { churchDist: rmdC, otherTradDist: rmdM + rmdS, conv: 0, rothDist: 0, brokDist: 0 };
-    const taxOf = pl => yearTax(pl, { ss, pension, allow, status, ages, calYear, scale, seniorExt: P.seniorExtended }, cfg);
-    const cashOf = pl => ss + pension + pl.churchDist + pl.otherTradDist + pl.rothDist + pl.brokDist;
+    const taxOf = pl => yearTax(pl, { ss, pension: pensionPaid, pensElig, allow, status, ages, calYear, scale, seniorExt: P.seniorExtended }, cfg);
+    const cashOf = pl => ss + pensionPaid + pl.churchDist + pl.otherTradDist + pl.rothDist + pl.brokDist;
     const needOf = pl => spend + taxOf(pl).total - cashOf(pl);
 
     // 3. Housing-shielded church draw (tax-free portion), limited to need
     let need = needOf(plan);
-    if (need > 0 && allow > plan.churchDist) {
-      const h = Math.min(need, allow - plan.churchDist, b.mChurch);
+    if (need > 0 && allow - pensElig > plan.churchDist) {
+      const h = Math.min(need, allow - pensElig - plan.churchDist, b.mChurch);
       b.mChurch -= h; plan.churchDist += h; need = needOf(plan);
     }
 
@@ -501,6 +553,7 @@ function runRetirement(start, P, returns, cfg = TAX) {
 
     // Tax attribution (incremental)
     const tFixed = taxOf({ churchDist: 0, otherTradDist: 0, conv: 0, rothDist: 0, brokDist: 0 }).total;
+    const exclTotal = Math.min(allow, plan.churchDist + pensElig);
     const tRmd = taxOf({ churchDist: rmdC, otherTradDist: rmdM + rmdS, conv: 0, rothDist: 0, brokDist: 0 }).total;
     const tConv = taxOf({ churchDist: rmdC, otherTradDist: rmdM + rmdS, conv: plan.conv, rothDist: 0, brokDist: 0 }).total;
     taxBy.fixed += tFixed; taxBy.rmd += tRmd - tFixed; taxBy.conversion += tConv - tRmd; taxBy.withdrawals += t.total - tConv;
@@ -520,8 +573,8 @@ function runRetirement(start, P, returns, cfg = TAX) {
 
     rows.push({
       i: i + 1, calYear, mAge, sAge, status, ministerAlive,
-      spend, ss, pension,
-      rmd: rmdC + rmdM + rmdS, housingExcluded: Math.min(allow, plan.churchDist),
+      spend, ss, pension: pensionPaid, pensElig, allow,
+      rmd: rmdC + rmdM + rmdS, housingExcluded: exclTotal,
       churchDist: plan.churchDist, otherTradDist: plan.otherTradDist,
       rothDist: plan.rothDist, brokDist: plan.brokDist, conv: plan.conv,
       taxableSS: t.taxableSS, fedAGI: t.agi, fedTaxable: t.fedTaxable,
@@ -542,8 +595,9 @@ function runRetirement(start, P, returns, cfg = TAX) {
 
 // One retirement year's federal + state tax for a draw plan.
 function yearTax(pl, ctx, cfg = TAX) {
-  const excluded = Math.min(ctx.allow, pl.churchDist);                     // §107 parsonage exclusion
-  const ordinary = pl.churchDist - excluded + pl.otherTradDist + pl.conv + ctx.pension;
+  const elig = ctx.pensElig || 0;
+  const excluded = Math.min(ctx.allow, pl.churchDist + elig);              // §107 parsonage exclusion
+  const ordinary = pl.churchDist + ctx.pension - excluded + pl.otherTradDist + pl.conv;
   const tSS = taxableSS(ctx.ss, ordinary, ctx.status, cfg);
   const agi = ordinary + tSS;
   const fed = fedIncomeTax(agi, ctx.status, ctx.ages, ctx.calYear, ctx.scale, ctx.seniorExt, cfg);
@@ -571,6 +625,9 @@ function buildRetParams(p) {
     ssSp0: mfj ? p.ssSp * toNominal : 0,
     pension0: p.pension * toNominal,
     pensionCOLA: p.pensionCOLA,
+    pensionStartAge: p.pensionStartAge > 0 ? p.pensionStartAge : 0,
+    pensionSurvivorPct: p.pensionSurvivorPct ?? 1,
+    pensionHousing: !!p.pensionHousing,
     housing0: p.retHousing * toNominal,
     housingOn: p.retHousing > 0,
     minAgeStart: p.minAge + Y,
@@ -687,6 +744,26 @@ function selfTests() {
     add('Cash + brokerage saving lowers take-home 1:1', t0.householdNet - t1.householdNet, 3600);
     const t2 = computeToday(Object.assign({}, base, { whMinFed: 500, estQuarterly: 0 }));
     add('Set-aside gap = tax due − 12 × withholding', t2.setAside.gap, t2.setAside.due - 6000); }
+  { cfg_state_swap(stateConfig('MA'));
+    add('529 MA joint deduction capped at $2,000', state529('MA', 'MFJ', 5000, 2, 0).ded, 2000);
+    add('529 PA per-beneficiary ×2 kids', state529('PA', 'MFJ', 100000, 2, 0).ded, 76000);
+    add('529 Indiana 20% credit, $1,500 max', state529('IN', 'MFJ', 10000, 1, 0).credit, 1500);
+    const b = { status: 'MFJ', minAge: 45, spAge: 45, minComp: 80000, housingDesignated: 20000, housingActual: 20000, housingFRV: 20000,
+      minPreTax: 0, minRoth403b: 0, minRothIRA: 0, spGross: 0, spPreTax: 0, spRoth401k: 0, spRothIRA: 0 };
+    const a0 = computeToday(b), a1 = computeToday(Object.assign({}, b, { otherSEIncome: 10000 }));
+    add('$10k honoraria adds SE tax of 15.3% × 92.35%', a1.seca.total - a0.seca.total, 10000 * 0.9235 * 0.153);
+    add('Honoraria leave net advantage about the same (bracket effects only)', a1.netAdvantage - a0.netAdvantage, 0, 50);
+    const g1 = computeToday(Object.assign({}, b, { cashGiving: 5000 }));
+    add('Non-itemizer giving deduction $2,000 MFJ at 10%', a0.minScenario.fed.tax - g1.minScenario.fed.tax, 200);
+    const e1 = computeToday(Object.assign({}, b, { contrib529: 3000, kids529: 1 }));
+    add('MA 529: $2,000 deduction saves $100', e1.edu.saved, 100); }
+  { const Pp = { years: 1, status: 'MFJ', startCalYear: 2046, scale0: 1, inflation: 0, ret: 0, spend0: 30000, ssMin0: 0, ssSp0: 0,
+      pension0: 30000, pensionCOLA: false, pensionHousing: true, pensionStartAge: 0, housing0: 30000, housingOn: true,
+      minAgeStart: 65, spAgeStart: 65, minRmdAge: 75, spRmdAge: 75, drawOrder: 'roth-first', convOn: false, survivorOn: false, survivorSpendPct: 1, seniorExtended: false, brokTaxDrag: 0 };
+    const rp = runRetirement({ mChurch: 0, mTrad: 0, sTrad: 0, roth: 0, brok: 0 }, Pp, null);
+    add('Church pension designated as housing → $0 tax', rp.totalTax, 0, 0.5);
+    const rq = runRetirement({ mChurch: 0, mTrad: 0, sTrad: 0, roth: 0, brok: 0 }, Object.assign({}, Pp, { pensionStartAge: 70 }), null);
+    add('Pension not paid before its start age → short', rq.depletedYear, 1); }
   // Engine: zero-return, no-tax sanity — Roth only, spend exactly drains balance
   const P0 = { years: 10, status: 'MFJ', startCalYear: 2046, scale0: 1, inflation: 0, ret: 0,
     spend0: 10000, ssMin0: 0, ssSp0: 0, pension0: 0, pensionCOLA: false, housing0: 0, housingOn: false,
@@ -713,7 +790,7 @@ function selfTests() {
   return T;
 }
 
-const API = { TAX, STATES, NO_WAGE_TAX, stateConfig, bracketTax, bracketTop, seniorDeduction, fedIncomeTax, taxableSS, ministerSECA, employeeFICA,
+const API = { TAX, STATES, NO_WAGE_TAX, stateConfig, S529, state529, bracketTax, bracketTop, seniorDeduction, fedIncomeTax, taxableSS, ministerSECA, employeeFICA,
   additionalMedicare, stateTax, rmdStartAge, rmdFactor, deferralLimit, iraLimit, rothIraAllowed,
   computeToday, accumulate, runRetirement, yearTax, buildRetParams, monteCarlo, fmt, selfTests, sumB };
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

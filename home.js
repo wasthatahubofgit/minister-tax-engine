@@ -7,6 +7,8 @@ const go = (tab, label) => `<button type="button" class="linkish small" data-go=
 const mini = items => `<div class="mini-kpis">${items.map(([l, v, c]) => `<div><span class="eyebrow">${l}</span><b ${c ? `style="color:var(--${c})"` : ''}>${v}</b></div>`).join('')}</div>`;
 
 const CARDS = {
+  suggest: { title: 'Worth discerning', wide: true, intro: 'Specific moves your numbers point toward. Each one explains why, so you can weigh it, pray it through, and decide.',
+    mount: el => A.renderSuggestions(el), render: () => { A.renderSuggestions($('hc-suggest')); return null; } },
   plan: { title: 'Your monthly plan', wide: true, intro: 'Slide or type any amount to see how saving, giving and spending fit together each month.',
     mount: el => A.mountPlan(el) },
   paycheck: { title: 'Where your paycheck goes', render: r => {
@@ -54,8 +56,12 @@ const CARDS = {
     const ids = ['compound', 'housing', 'setaside', 'roth', 'montecarlo'];
     return `<ul class="start-list" style="margin:0">${ids.map(id => `<li>${T(id, esc(A.TERMS[id].term))}</li>`).join('')}</ul>${go('learn', 'All terms')}`; } }
 };
-const DEFAULT = ['plan', 'paycheck', 'budget', 'taxset', 'outlook', 'housing', 'reflect'];
+const DEFAULT = ['suggest', 'plan', 'paycheck', 'budget', 'taxset', 'outlook', 'housing', 'reflect'];
 let order = (A.store.get('mtw.home', DEFAULT) || DEFAULT).filter(k => CARDS[k]);
+// Introduce cards added in later versions once, without overriding a person's own arrangement
+const known = A.store.get('mtw.homeKnown', null) || ['plan', 'paycheck', 'budget', 'taxset', 'outlook', 'housing', 'reflect', 'emergency', 'dual', 'learn'];
+if (!known.includes('suggest') && !order.includes('suggest')) order.unshift('suggest');
+A.store.set('mtw.homeKnown', Object.keys(CARDS)); A.store.set('mtw.home', order);
 let editing = false, lastMfj = null;
 
 function build(){
@@ -76,7 +82,7 @@ function fill(r){
   const m = r.p.status === 'MFJ';
   if (lastMfj !== null && m !== lastMfj && order.includes('plan')) { lastMfj = m; return build(); }
   lastMfj = m;
-  order.forEach(k => { const c = CARDS[k], el = $('hc-' + k); if (c.render && el) el.innerHTML = c.render(r); });
+  order.forEach(k => { const c = CARDS[k], el = $('hc-' + k); if (c.render && el) { const html = c.render(r); if (html !== null) el.innerHTML = html; } });
 }
 function save(){ A.store.set('mtw.home', order); build(); }
 
