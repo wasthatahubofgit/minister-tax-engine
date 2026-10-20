@@ -12,12 +12,12 @@ let html = read('index.html');
 
 // 1. Remove everything that only makes sense online (accounts download card, fonts, CDN scripts)
 html = html.replace(/<!--online-only-->[\s\S]*?<!--\/online-only-->/g, '');
+html = html.replace(/<link[^>]+rel="(?:manifest|icon|apple-touch-icon)"[^>]*>\s*/g, '');
 html = html.replace(/<link[^>]+fonts\.(?:googleapis|gstatic)\.com[^>]*>\s*/g, '');
 html = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '<!--CSP-->');
 
 // 2. Inline every script (libraries from /vendor, the app's own files, and an offline flag in place of config.js)
 const inline = src => {
-  if (/cdnjs\.cloudflare\.com\/.*[Cc]hart/.test(src)) return read('vendor/chart.umd.min.js');
   if (/jsdelivr\.net\/.*supabase/.test(src)) return '';
   if (src === 'config.js') return `window.APP_CONFIG = {}; window.MTW_OFFLINE = { built: ${JSON.stringify(built)} };`;
   if (/^https?:/.test(src)) throw new Error('Unexpected external script: ' + src);

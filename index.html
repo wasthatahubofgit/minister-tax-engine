@@ -3,8 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#4338ca">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="description" content="Free tax and retirement planner for ministers: housing allowance, SECA, 403(b), RMDs, Roth conversions.">
 <title>Lifecycle Minister Tax &amp; Wealth Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -656,6 +660,11 @@ body.simple .adv{display:none!important}
       <h3 style="margin:0">Prefer to keep everything on your own computer?</h3>
       <p class="note" style="margin:0">Download one file. Double-click it and the whole planner opens in your browser, with no internet and no account. Your numbers never leave your computer.</p>
       <div class="row"><a class="btn primary" id="dlOffline" href="minister-tax-engine-offline.html" download="Minister-Tax-Engine.html">Download for my computer</a></div>
+      <div id="installBox" style="display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px">
+        <h3 style="margin:0">Or install it like an app</h3>
+        <div class="row"><button type="button" class="btn" id="btnInstall" hidden>Install app</button></div>
+        <p class="note" id="installNote" style="margin:0"></p>
+      </div>
       <ul class="note" style="padding-left:18px;display:grid;gap:4px;margin:0">
         <li>It saves in the browser you open it with, so use the same browser each time.</li>
         <li>Use <strong>Export</strong> on the Scenarios tab to back up your numbers to a file.</li>
@@ -698,7 +707,7 @@ body.simple .adv{display:none!important}
 </div>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="engine.js"></script>
@@ -715,5 +724,6 @@ body.simple .adv{display:none!important}
 <script src="suggest.js"></script>
 <script src="home.js"></script>
 <script src="guide.js"></script>
+<script src="pwa.js"></script>
 </body>
 </html>

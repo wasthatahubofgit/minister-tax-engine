@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-dEAdc43T4D7l37O2hBIQ/ixOrYqWDEARykugt4qf2PM=' 'sha256-j5vnmSdcogUv1sgVHhu2Rzt2oFL7nnWmYfEwDmOJ1ME=' 'sha256-iI12wN/GnMCVgF+tv64SaE+B/lOEBDKJthN99KR+NrI=' 'sha256-YBYJxP1VD7WB4b3SXmSTpU+xgCdgQTRtY/mFLzVbyHA=' 'sha256-mXWVvma6QmbyaO/TPLlviOnlkDoPyzGmarCas0LRcPE=' 'sha256-sNWgc2iE8nKnd3hjGQvbPzn0BAunxeYHZuoahAQNe6U=' 'sha256-tvDSQRDjWXAExATk8GflflHDKoFdranUY1g6aD5W48I=' 'sha256-lc7CM09TI0S+FYv8UUQch5TT6RIko3CsYTceotz1KyI=' 'sha256-kQJMfn5qFXLDNFuEauA7q5mjODffU93QcHth3j9XO6E=' 'sha256-VP7hCqp7bz+AkXLY3TKlrfMB6fNb6mYDWLm5OmQjbF4=' 'sha256-ed+Kzuhh65Kybz4NMuxkGOMFa76e0Y7eQQtq5VfamDo=' 'sha256-JtxCX3ld736Q4EN9fQwYADMa4uQWP0xypt+Yc0EKQFo=' 'sha256-m38HxVOUdhZKdPeqQ0B997pymOd1qtuORMFc1aUuQFA=' 'sha256-D0ISKOGrRaHgxvwKbB16tyrBUUpN3iMC4c+FT73NyFo=' 'sha256-1e8VFRKjFDKKwKQRuiJT6OyUsU8brrjpfOW9xF/qII0=' 'sha256-vFABYAJZJVDtdsvjdGCnerNy4ZIYrJk+SwNjp9tr+1c='; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-dEAdc43T4D7l37O2hBIQ/ixOrYqWDEARykugt4qf2PM=' 'sha256-j5vnmSdcogUv1sgVHhu2Rzt2oFL7nnWmYfEwDmOJ1ME=' 'sha256-iI12wN/GnMCVgF+tv64SaE+B/lOEBDKJthN99KR+NrI=' 'sha256-YBYJxP1VD7WB4b3SXmSTpU+xgCdgQTRtY/mFLzVbyHA=' 'sha256-mXWVvma6QmbyaO/TPLlviOnlkDoPyzGmarCas0LRcPE=' 'sha256-sNWgc2iE8nKnd3hjGQvbPzn0BAunxeYHZuoahAQNe6U=' 'sha256-tvDSQRDjWXAExATk8GflflHDKoFdranUY1g6aD5W48I=' 'sha256-lc7CM09TI0S+FYv8UUQch5TT6RIko3CsYTceotz1KyI=' 'sha256-kQJMfn5qFXLDNFuEauA7q5mjODffU93QcHth3j9XO6E=' 'sha256-VP7hCqp7bz+AkXLY3TKlrfMB6fNb6mYDWLm5OmQjbF4=' 'sha256-ed+Kzuhh65Kybz4NMuxkGOMFa76e0Y7eQQtq5VfamDo=' 'sha256-JtxCX3ld736Q4EN9fQwYADMa4uQWP0xypt+Yc0EKQFo=' 'sha256-m38HxVOUdhZKdPeqQ0B997pymOd1qtuORMFc1aUuQFA=' 'sha256-D0ISKOGrRaHgxvwKbB16tyrBUUpN3iMC4c+FT73NyFo=' 'sha256-1e8VFRKjFDKKwKQRuiJT6OyUsU8brrjpfOW9xF/qII0=' 'sha256-vFABYAJZJVDtdsvjdGCnerNy4ZIYrJk+SwNjp9tr+1c=' 'sha256-SQBzo6WrZ/SwrFWIVGTqqaPJhMaM+3D3L4+FJOLoFRo='; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#4338ca">
 <meta name="description" content="Free tax and retirement planner for ministers: housing allowance, SECA, 403(b), RMDs, Roth conversions.">
 <title>Minister Tax &amp; Wealth Engine (offline copy)</title>
 <style>
@@ -4455,6 +4456,25 @@ $('btnReplay').onclick = () => open();
 A.openGuide = open;
 
 if (!A.store.get('mtw.onboarded', 0) && !/[?&]noguide/.test(location.search)) open();
+})();
+</script>
+<script>/* "Install app": registers the offline helper and offers a one-click install where the browser supports it. */
+(function(){
+'use strict';
+const A = window.App, $ = A.$;
+if (window.MTW_OFFLINE) return;
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+const box = $('installBox'); if (!box) return;
+const btn = $('btnInstall'), note = $('installNote');
+if (standalone) { box.hidden = false; btn.hidden = true; note.textContent = "You're using the installed app. Your numbers are saved on this device."; return; }
+const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let evt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; btn.hidden = false; note.textContent = 'Opens in its own window with its own icon, and also works with no internet after the first visit.'; });
+window.addEventListener('appinstalled', () => { btn.hidden = true; note.textContent = 'Installed. Look for "Minister Planner" in your apps.'; });
+btn.addEventListener('click', async () => { if (!evt) return; evt.prompt(); await evt.userChoice.catch(() => {}); evt = null; btn.hidden = true; });
+note.textContent = ios ? 'On iPhone or iPad: tap the Share button in Safari, then "Add to Home Screen".'
+  : 'In Chrome or Edge, use the install icon in the address bar, or the browser menu and "Install". Safari on Mac: File, then "Add to Dock".';
 })();
 </script>
 </body>
