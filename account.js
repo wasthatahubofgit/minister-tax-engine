@@ -75,6 +75,12 @@ function wireClear(){
 function render(){
   setTop();
   const body = $('acctBody');
+  if (window.MTW_OFFLINE) {
+    body.innerHTML = `<p class="note">This is the offline copy, built ${esc(window.MTW_OFFLINE.built)}. Everything you enter is saved on this computer, in this browser, and nothing is sent anywhere. The only exception is the AI coach, if you choose to add your own key.</p>
+      <p class="note">To back up or move your numbers, use <strong>Export</strong> on the Scenarios tab. Clearing browser data erases them.</p><div class="row">${localClearButton()}</div>`;
+    const pc = $('protectCard'); if (pc) pc.hidden = true;
+    wireClear(); return;
+  }
   if (!configured) {
     body.innerHTML = `<p class="note">Accounts aren't switched on for this site yet, so everything is saved in this browser only. You can still export your scenarios as a file from the Scenarios tab.</p><div class="row">${localClearButton()}</div>`;
     wireClear(); return;

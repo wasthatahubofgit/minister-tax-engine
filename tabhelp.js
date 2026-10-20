@@ -72,6 +72,9 @@ const HELP = {
     tip: 'These figures are updated each January.' }
 };
 
+if (window.MTW_OFFLINE) HELP.account = { what: 'This is the offline copy of the planner. Everything stays on this computer.',
+  steps: ['Your numbers are saved in this browser automatically. Use the same browser each time.', 'Back up with <b>Export</b> on the Scenarios tab, and bring a backup in with <b>Import</b>.', 'On a shared computer, use "Clear this device" when you finish.'],
+  tip: 'Download a fresh copy each January, when the tax numbers change.' };
 const closed = new Set(A.store.get('mtw.helpClosed', []));
 document.querySelectorAll('[data-panel]').forEach(panel => {
   const id = panel.dataset.panel, h = HELP[id]; if (!h) return;

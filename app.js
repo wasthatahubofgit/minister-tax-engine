@@ -14,16 +14,16 @@ const store = {
 /* ---------- Inputs ---------- */
 // pct: shown as %, stored as fraction
 const FIELDS = {
-  minAge:45, spAge:45, state:{v:'MA',sel:1}, stateRate:{v:4.5,pct:1}, stateTaxesSS:{v:false,bool:1}, minComp:109295, housingDesignated:40032, housingActual:40032, housingFRV:40032,
-  minPreTax:0, minRoth403b:0, minRothIRA:0, spGross:66039, spPreTax:0, spRoth401k:0, spRothIRA:0,
+  minAge:45, spAge:45, state:{v:'MA',sel:1}, stateRate:{v:4.5,pct:1}, stateTaxesSS:{v:false,bool:1}, minComp:54000, housingDesignated:19200, housingActual:19200, housingFRV:19200,
+  minPreTax:3600, minRoth403b:0, minRothIRA:0, spGross:12000, spPreTax:0, spRoth401k:0, spRothIRA:0,
   yearsToRetire:20, accReturn:{v:7,pct:1}, salaryGrowth:{v:0,pct:1},
-  minTradBal:50000, churchPlanPct:{v:100,pct:1}, minRothBal:10000, spTradBal:25000, spRothBal:5000,
-  miscTradBal:15000, miscRothBal:0, brokerageBal:0, brokContrib:0, cashBal:5000, cashContrib:0, cashRate:{v:3,pct:1},
-  whMinFed:0, whMinState:0, whSpFed:0, whSpState:0, estQuarterly:0, lastYearTax:0,
+  minTradBal:18000, churchPlanPct:{v:100,pct:1}, minRothBal:2000, spTradBal:3000, spRothBal:0,
+  miscTradBal:0, miscRothBal:0, brokerageBal:0, brokContrib:0, cashBal:6000, cashContrib:600, cashRate:{v:3,pct:1},
+  whMinFed:600, whMinState:140, whSpFed:0, whSpState:0, estQuarterly:0, lastYearTax:0,
   otherSEIncome:0, otherSEExpenses:0, mortgageInterest:0, bal529:0, contrib529:0, kids529:1, yrsToCollege:10, limit529:0,
   kidsUnder17:0, otherDeps:0, acaMarket:{v:false,bool:1}, acaSubsidy:0,
   pensionStartAge:0, pensionSurvivorPct:{v:50,pct:1}, pensionHousing:{v:true,bool:1},
-  todaysDollars:{v:true,bool:1}, retSpend:120000, retHousing:40000, ssMin:27000, ssSp:18000, pension:0,
+  todaysDollars:{v:true,bool:1}, retSpend:34500, retHousing:16000, ssMin:21000, ssSp:10000, pension:0,
   pensionCOLA:{v:false,bool:1}, retYears:30, retReturn:{v:5,pct:1}, retVol:{v:12,pct:1}, inflation:{v:2.5,pct:1},
   dist:{v:'normal',sel:1}, brokTaxDrag:{v:15,pct:1}, drawOrder:{v:'roth-first',sel:1},
   convOn:{v:false,bool:1}, convBracket:{v:'0.22',sel:1}, survivorOn:{v:false,bool:1}, survivorYear:15,
@@ -34,9 +34,9 @@ let status = 'MFJ';
 // Values that live outside ordinary inputs (budget lines, budget level, housing link)
 const VS = { budget: {}, budgetMode: 'standard', linkHousing: true, budgetExample: false };
 // Example monthly budget that goes with the example numbers (replaced as soon as someone enters their own)
-const EXAMPLE_BUDGET = { h_rent: 2600, h_util: 350, h_ins: 120, h_tax: 450, h_furn: 100, h_repair: 150, g_church: 1500, g_other: 200,
-  f_groc: 1100, f_dine: 300, t_car: 400, t_fuel: 200, t_ins: 150, t_maint: 80, k_care: 800, k_act: 150, m_prem: 500, m_oop: 150, m_life: 60,
-  d_student: 300, p_phone: 150, p_subs: 60, p_cloth: 150, p_care: 60, p_house: 120, o_gifts: 100, o_travel: 250, o_ministry: 50, o_misc: 200 };
+const EXAMPLE_BUDGET = { h_rent: 1200, h_util: 200, h_ins: 30, h_tax: 60, h_furn: 40, h_repair: 70, g_church: 450, g_other: 50,
+  f_groc: 600, f_dine: 60, t_car: 250, t_fuel: 130, t_ins: 100, t_maint: 50, m_prem: 200, m_oop: 100, m_life: 40,
+  d_student: 100, p_phone: 100, p_subs: 20, p_cloth: 80, p_care: 40, p_house: 60, o_gifts: 40, o_travel: 60, o_ministry: 30, o_misc: 60 };
 const housingBudgetMo = () => Object.entries(VS.budget).filter(([k]) => k.startsWith('h_')).reduce((a, [, v]) => a + (+v || 0), 0);
 const budgetMo = () => Object.values(VS.budget).reduce((a, v) => a + (+v || 0), 0);
 

@@ -20,6 +20,8 @@ A free planner for ministers: housing allowance (IRC §107), dual-status SECA, 4
 - Every number has a slider; the figures you choose to watch show before→after changes, with a plain-language "today → retirement" translation for savings changes.
 - Tap any term (or the ? next to a field) for a plain explanation with articles, videos and an "explain this" AI prompt. The Learn tab lists them all.
 - AI coach: prompts written in a stewardship lens, ready to paste into any AI, or chat in-app with your own key.
+- Offline copy: `minister-tax-engine-offline.html` is the whole app in one file (no internet, no account, nothing leaves the computer). Offered as a one-click download on the My account tab. Rebuild it with `node scripts/build-offline.mjs` after any change and commit the result.
+- Example numbers are a $54k pastor with a $12k part-time spouse, so first-time visitors on modest incomes don't see a picture that doesn't look like them.
 - State tax: full Massachusetts rules, the nine states with no wage tax, or a flat rate for any other state.
 - `engine.js` holds all tax math and 56 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
 
@@ -35,7 +37,7 @@ A free planner for ministers: housing allowance (IRC §107), dual-status SECA, 4
 
 ## Each January
 
-Update the `TAX` block at the top of `engine.js` (brackets, standard deduction, wage base, contribution limits, Massachusetts surtax threshold), then adjust the matching expected values in `selfTests()`.
+Update the `TAX` block at the top of `engine.js` (brackets, standard deduction, wage base, contribution limits, Massachusetts surtax threshold), then adjust the matching expected values in `selfTests()`. Then run `node scripts/build-offline.mjs` so the downloadable offline copy gets the new numbers, and commit it.
 
 ## Password resets
 

@@ -183,8 +183,8 @@ const STEPS = [
   { id: 'retire', title: 'Picturing retirement', body: () => {
       const take = suggestTakeHome();
       if (!draft._retTouched) {   // replace untouched example values with ones scaled to this household
-        if (draft.retSpend === 120000) draft.retSpend = Math.round(take * 0.8 / 50) * 50 * 12;
-        if (draft.retHousing === 40000) draft.retHousing = draft.churchPlanPct > 0 ? Math.min(draft.housingDesignated, draft.housingActual) : 0;
+        if (draft.retSpend === 34500) draft.retSpend = Math.round(take * 0.8 / 50) * 50 * 12;
+        if (draft.retHousing === 16000) draft.retHousing = draft.churchPlanPct > 0 ? Math.min(draft.housingDesignated, draft.housingActual) : 0;
         draft._retTouched = true;
       }
       return `${wf('retireAge', 'Age you hope to retire', { min: Math.max(draft.minAge, 50), max: 75, step: 1, unit: '', per: 'yrs', get: () => draft.minAge + draft.yearsToRetire, unsure: { where: 'Many ministers plan for 65 to 70. Full Social Security age is 67 for anyone born 1960 or later.', typical: 67, typicalLabel: '67' } })}

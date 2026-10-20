@@ -651,7 +651,19 @@ body.simple .adv{display:none!important}
       <div id="acctBody"><p class="muted">Loading…</p></div>
       <p class="small muted" id="acctMsg" aria-live="polite"></p>
     </div>
-    <div class="card" style="max-width:640px">
+    <!--online-only-->
+    <div class="card" style="max-width:640px;display:grid;gap:10px">
+      <h3 style="margin:0">Prefer to keep everything on your own computer?</h3>
+      <p class="note" style="margin:0">Download one file. Double-click it and the whole planner opens in your browser, with no internet and no account. Your numbers never leave your computer.</p>
+      <div class="row"><a class="btn primary" id="dlOffline" href="minister-tax-engine-offline.html" download="Minister-Tax-Engine.html">Download for my computer</a></div>
+      <ul class="note" style="padding-left:18px;display:grid;gap:4px;margin:0">
+        <li>It saves in the browser you open it with, so use the same browser each time.</li>
+        <li>Use <strong>Export</strong> on the Scenarios tab to back up your numbers to a file.</li>
+        <li>It is built with 2026 tax law. Download a new copy each January.</li>
+      </ul>
+    </div>
+    <!--/online-only-->
+    <div class="card" style="max-width:640px" id="protectCard">
       <h3 style="margin-bottom:6px">How your data is protected</h3>
       <ul class="note" style="padding-left:18px;display:grid;gap:4px;margin:0">
         <li>Without an account, everything stays in this browser.</li>
