@@ -1,6 +1,6 @@
 name: Keep Supabase awake
 on:
-  schedule: [{ cron: '17 14 * * 1,4' }]   # Mondays and Thursdays
+  schedule: [{ cron: '17 14 * * *' }]   # every day
   workflow_dispatch:
 jobs:
   ping:
