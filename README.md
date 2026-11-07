@@ -24,7 +24,7 @@ A free planner for ministers: housing allowance (IRC §107), dual-status SECA, 4
 - Offline copy: `minister-tax-engine-offline.html` is the whole app in one file (no internet, no account, nothing leaves the computer). Offered as a one-click download on the My account tab. Rebuild it with `node scripts/build-offline.mjs` after any change and commit the result.
 - Example numbers are a $54k pastor with a $12k part-time spouse, so first-time visitors on modest incomes don't see a picture that doesn't look like them.
 - State tax: full Massachusetts rules, the nine states with no wage tax, or a flat rate for any other state.
-- `engine.js` holds all tax math and 56 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
+- `engine.js` holds all tax math and 64 hand-computed tests (`node scripts/test.mjs`, also run by GitHub Actions on every push).
 
 ## One-time setup
 
