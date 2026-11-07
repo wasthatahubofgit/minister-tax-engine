@@ -19,7 +19,7 @@ const HELP = {
       'Check the summary. A shortfall means the plan spends more than you bring home; the monthly plan on Home can help you find room.'],
     tip: 'Last month\'s bank and card statements are the quickest source. Close enough is good enough here.' },
   pay: { what: 'What your pay looks like after minister tax rules, and whether enough tax is being set aside.',
-    steps: ['Enter your household, pay, housing allowance and any speaking or honoraria income on the left, or use <b>Guided setup</b> at the top.',
+    steps: ['Enter your household, pay and housing allowance on the left, or use <b>Guided setup</b> at the top. Paid weekly, every two weeks or twice a month? Use <b>Enter from a pay stub</b> in the set-aside card. Add weddings, speaking, and contract pay under <b>Other income</b>.',
       'Read <b>Dual-status math</b> to see whether the housing allowance outweighs the extra self-employment tax you pay.',
       'Fill in the <b>Tax set-aside check</b> with what is withheld from each paycheck and any quarterly payments.',
       'If it says under-withheld, follow the suggestion: more voluntary withholding from church pay, or quarterly payments.',

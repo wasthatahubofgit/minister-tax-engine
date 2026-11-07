@@ -45,3 +45,8 @@ Update the `TAX` block at the top of `engine.js` (brackets, standard deduction, 
 Supabase's free email service can't send reset emails to other people. To reset someone's login, open Supabase → Authentication → Users and update or delete the user. Their vault passphrase is separate: nobody, including the administrator, can recover scenarios if that is lost.
 
 Educational planning model, not tax or investment advice.
+
+## Pay periods and non-paycheck income
+
+- **Pay stub helper** (Pay tab, Tax set-aside card): enter one paycheck and choose weekly, every two weeks, twice a month, monthly, quarterly or yearly. It converts gross pay, withholding and retirement to yearly/monthly figures.
+- **Other income list** (Pay tab): weddings, funerals, conference talks, guest preaching, contracts and royalties. Each item can be one-time or recurring, with a start month and a payment count. Totals feed side income, and a per-period table shows the estimated-tax set-aside and due dates.

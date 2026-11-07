@@ -204,6 +204,37 @@ function fedCredits(agi, taxBefore, p, earned, cfg = TAX) {
   return { saver, saverRate: sRate, saverQual, ctc: ctcNonref + clamp0(refundable), refundable: clamp0(refundable), ctcFull, total: saver + ctcNonref + clamp0(refundable) };
 }
 
+// Expected income outside the church paycheck: one-off gigs (weddings, funerals, conference talks) and
+// contract pay (a monthly or weekly amount for a stretch of the year). Each gig: { name, amount, freq, count, month, cost }.
+// Returns yearly totals and what lands in each month, so set-aside advice can follow the estimated-tax dates.
+const GIG_SPACING = { once: 0, weekly: 12 / 52, biweekly: 12 / 26, monthly: 1, quarterly: 3 };
+function gigDefaultCount(freq, month) {
+  const m = Math.min(12, Math.max(1, Math.round(+month || 1))), left = 13 - m;
+  return freq === 'weekly' ? Math.round(left * 52 / 12) : freq === 'biweekly' ? Math.round(left * 26 / 12) : freq === 'monthly' ? left : freq === 'quarterly' ? Math.ceil(left / 3) : 1;
+}
+function gigSummary(gigs) {
+  const byMonth = Array(12).fill(0), costByMonth = Array(12).fill(0);
+  let income = 0, cost = 0, count = 0;
+  for (const g of gigs || []) {
+    const amt = clamp0(+g.amount || 0), freq = g.freq in GIG_SPACING ? g.freq : 'once';
+    const times = freq === 'once' ? 1 : Math.max(0, Math.round(g.count !== undefined && g.count !== '' ? +g.count || 0 : gigDefaultCount(freq, g.month)));
+    const m0 = Math.min(12, Math.max(1, Math.round(+g.month || 1))) - 1, c = clamp0(+g.cost || 0);
+    if (!(amt > 0 && times > 0) && !(c > 0)) continue;
+    count++; income += amt * times; cost += c;
+    for (let i = 0; i < Math.max(1, times); i++) {
+      const idx = Math.min(11, Math.floor(m0 + i * GIG_SPACING[freq] + 1e-9));
+      if (amt > 0 && times > 0) byMonth[idx] += amt;
+      costByMonth[idx] += c / Math.max(1, times);
+    }
+  }
+  return { income, cost, net: clamp0(income - cost), count, byMonth, costByMonth };
+}
+// Income and costs per estimated-tax period (Jan–Mar, Apr–May, Jun–Aug, Sep–Dec)
+const TAX_PERIODS = [['Jan–Mar', [0, 1, 2]], ['Apr–May', [3, 4]], ['Jun–Aug', [5, 6, 7]], ['Sep–Dec', [8, 9, 10, 11]]];
+function gigPeriods(sum) {
+  return TAX_PERIODS.map(([label, ms]) => ({ label, income: ms.reduce((a, i) => a + sum.byMonth[i], 0), cost: ms.reduce((a, i) => a + sum.costByMonth[i], 0) }));
+}
+
 /* ---------------- Payroll / SE ---------------- */
 
 // Minister SECA (IRC §1401/§1402). Housing allowance IS in the SE base (§1402(a)(8));
@@ -1047,6 +1078,16 @@ function selfTests() {
       add('ACA: same income keeps the same credit', acaCredit(110000, 110000, 9000, pa).ptc, 9000, 0.01);
       add('ACA: +$1,000 at 300–400% FPL costs 9.96%', 9000 - acaCredit(111000, 110000, 9000, pa).ptc, 99.6, 0.01);
       add('ACA: $1 over the cliff ends the credit', acaCredit(128601, 110000, 9000, pa).ptc, 0); }
+    { const gs = gigSummary([{ amount: 300, freq: 'once', month: 5, cost: 20 }, { amount: 1000, freq: 'monthly', month: 7, count: 6 }, { amount: 250, freq: 'quarterly', month: 2 }]);
+      add('Gigs: wedding + 6-month contract + quarterly total', gs.income, 300 + 6000 + 1000);
+      add('Gigs: costs add up', gs.cost, 20);
+      const gp = gigPeriods(gs);
+      add('Gigs: Jun–Aug holds the Jul+Aug contract pay and one quarterly payment', gp[2].income, 2000 + 250);
+      add('Gigs: Apr–May holds the May wedding and a quarterly payment', gp[1].income, 300 + 250);
+      add('Gigs: Sep–Dec holds four contract payments and one quarterly payment', gp[3].income, 4000 + 250);
+      add('Gigs: recurring default count from month 7', gigDefaultCount('monthly', 7), 6);
+      add('Gigs: biweekly from January', gigSummary([{ amount: 100, freq: 'biweekly', month: 1 }]).income, 2600);
+      add('Gigs feed side income net', computeToday(Object.assign({}, b, { otherSEIncome: gs.income, otherSEExpenses: gs.cost })).otherNet, 7300 - 20); }
     add('Pre-tax solver lands at the bracket edge', after <= 211400 && after > 211300 ? 1 : 0, 1);
     cfg_state_swap(saved); }
   { const Pp = { years: 1, status: 'MFJ', startCalYear: 2046, scale0: 1, inflation: 0, ret: 0, spend0: 30000, ssMin0: 0, ssSp0: 0,
@@ -1085,7 +1126,7 @@ function selfTests() {
 const API = { TAX, STATES, NO_WAGE_TAX, stateConfig, S529, state529, bracketTax, bracketTop, seniorDeduction, fedIncomeTax, taxableSS, ministerSECA, employeeFICA,
   additionalMedicare, stateTax, rmdStartAge, rmdFactor, deferralLimit, iraLimit, rothIraAllowed,
   computeToday, accumulate, runRetirement, yearTax, buildRetParams, monteCarlo, fmt, selfTests, sumB,
-  fedCredits, saverRate, householdTax, deltaRate, bracketInfo, preTaxRoom, preTaxToReach, nextDollar, thresholds, bestSplit, fpl, acaCredit, acaApplicable };
+  gigSummary, gigPeriods, gigDefaultCount, fedCredits, saverRate, householdTax, deltaRate, bracketInfo, preTaxRoom, preTaxToReach, nextDollar, thresholds, bestSplit, fpl, acaCredit, acaApplicable };
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else root.Engine = API;
 })(typeof window !== 'undefined' ? window : globalThis);

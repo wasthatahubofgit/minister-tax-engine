@@ -1,9 +1,9 @@
 /* Lets the app open with no internet once it has been visited. Network first, so people always get the
    newest version when online; the saved copy is used only when the network is unavailable.
    Accounts (Supabase) and AI calls are never cached. */
-const CACHE = 'mtw-v1';
+const CACHE = 'mtw-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'config.js', 'engine.js', 'app.js', 'account.js', 'tabhelp.js', 'budget.js', 'impact.js',
-  'glossary.js', 'sliders.js', 'ai.js', 'plan.js', 'marginal.js', 'suggest.js', 'home.js', 'guide.js', 'pwa.js',
+  'glossary.js', 'sliders.js', 'ai.js', 'plan.js', 'marginal.js', 'income.js', 'paystub.js', 'suggest.js', 'home.js', 'guide.js', 'pwa.js',
   'vendor/chart.umd.min.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 const LIBS = ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js'];
 

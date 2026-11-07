@@ -324,6 +324,19 @@ body.simple .adv{display:none!important}
 .nd-h{margin:6px 0 0;font-size:.74rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
 .split-block{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
 .split-block .mini-kpis b{font-size:.9rem}
+details.stub{grid-column:1 / -1;border:1px solid var(--line);border-radius:10px;padding:0 12px;background:var(--surface)}
+details.stub summary{cursor:pointer;padding:9px 0;font-size:.88rem;font-weight:500;color:var(--accent)}
+.stub-body{display:grid;gap:10px;padding:0 0 12px}
+.stub-body select,.gig select,.gig input{font:inherit;font-size:.9rem;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0;width:100%}
+.stub-body .field{grid-template-columns:minmax(0,1fr) 128px}
+.gig-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gig-chips .btn{padding:4px 10px;font-size:.8rem;border-radius:999px}
+.gig-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:10px}
+.gig{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.gig .gig-name{grid-column:1 / -1}
+.gig label{display:grid;gap:2px;font-size:.74rem;color:var(--muted);min-width:0}
+.gig .gig-foot{grid-column:1 / -1;display:flex;justify-content:space-between;align-items:center;font-size:.82rem}
+.gig .gig-foot button{font:inherit;font-size:.8rem;color:var(--bad);background:none;border:0;cursor:pointer;text-decoration:underline;padding:0}
 </style>
 </head>
 <body>
@@ -410,8 +423,10 @@ body.simple .adv{display:none!important}
         <div class="field"><label for="minRoth403b">403(b) Roth deferral<small>Shares the deferral limit</small></label><input type="number" id="minRoth403b" step="500"></div>
         <div class="field"><label for="minRothIRA">Roth IRA contribution</label><input type="number" id="minRothIRA" step="500"></div>
         <div class="group-title"><h3>Other income</h3></div>
-        <div class="field"><label for="otherSEIncome">Speaking, weddings, honoraria (per year)<small>Expected this year, outside your salary</small></label><input type="number" id="otherSEIncome" step="100"></div>
-        <div class="field"><label for="otherSEExpenses">Costs of earning it (per year)<small>Travel, supplies, fees</small></label><input type="number" id="otherSEExpenses" step="100"></div>
+        <p class="note" style="margin:0">Weddings, funerals, conference talks, writing, or contract pay. Add each one, or just a yearly total below.</p>
+        <div id="gigsBox"></div>
+        <div class="field"><label for="otherSEIncome">Other side income not listed above<small>A yearly total, if you prefer</small></label><input type="number" id="otherSEIncome" step="100"></div>
+        <div class="field"><label for="otherSEExpenses">Costs of earning it, not listed above<small>Per year: travel, supplies, fees</small></label><input type="number" id="otherSEExpenses" step="100"></div>
         <div class="field adv"><label for="mortgageInterest">Mortgage interest (per year)<small>Used to check whether itemizing helps</small></label><input type="number" id="mortgageInterest" step="100"></div>
 
         <div class="group-title spouse-only"><h3>Spouse (W-2)</h3></div>
@@ -430,6 +445,7 @@ body.simple .adv{display:none!important}
         <p class="note" style="margin-top:0">Churches don't withhold Social Security or Medicare from a minister's pay, so you have to set money aside for it yourself. Enter what's set aside now to see whether it covers this year's taxes.</p>
         <div class="scen">
           <fieldset>
+            <details class="stub" id="stubBox"><summary>Enter from a pay stub instead</summary><div class="stub-body" id="stubBody"></div></details>
             <div class="field"><label for="whMinFed">Federal tax withheld from church pay<small>Per month, from your pay stub</small></label><input type="number" id="whMinFed" step="25"></div>
             <div class="field"><label for="whMinState">State tax withheld from church pay<small>Per month</small></label><input type="number" id="whMinState" step="25"></div>
             <div class="field spouse-only"><label for="whSpFed">Federal tax withheld from spouse's pay<small>Per month</small></label><input type="number" id="whSpFed" step="25"></div>
@@ -721,6 +737,8 @@ body.simple .adv{display:none!important}
 <script src="ai.js"></script>
 <script src="plan.js"></script>
 <script src="marginal.js"></script>
+<script src="income.js"></script>
+<script src="paystub.js"></script>
 <script src="suggest.js"></script>
 <script src="home.js"></script>
 <script src="guide.js"></script>

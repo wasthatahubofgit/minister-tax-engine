@@ -32,7 +32,7 @@ const FIELDS = {
 const spec = k => (typeof FIELDS[k] === 'object' ? FIELDS[k] : { v: FIELDS[k] });
 let status = 'MFJ';
 // Values that live outside ordinary inputs (budget lines, budget level, housing link)
-const VS = { budget: {}, budgetMode: 'standard', linkHousing: true, budgetExample: false };
+const VS = { budget: {}, budgetMode: 'standard', linkHousing: true, budgetExample: false, gigs: [] };
 // Example monthly budget that goes with the example numbers (replaced as soon as someone enters their own)
 const EXAMPLE_BUDGET = { h_rent: 1200, h_util: 200, h_ins: 30, h_tax: 60, h_furn: 40, h_repair: 70, g_church: 450, g_other: 50,
   f_groc: 600, f_dine: 60, t_car: 250, t_fuel: 130, t_ins: 100, t_maint: 50, m_prem: 200, m_oop: 100, m_life: 40,
@@ -51,11 +51,13 @@ function setInputs(vals){
   VS.budgetMode = vals && vals.budgetMode || 'standard';
   VS.budgetExample = !vals ? true : !!vals.budgetExample;
   VS.linkHousing = vals && 'linkHousing' in vals ? !!vals.linkHousing : true;
+  VS.gigs = JSON.parse(JSON.stringify(vals && Array.isArray(vals.gigs) ? vals.gigs : []));
   if ($('linkHousing')) $('linkHousing').checked = VS.linkHousing;
   if (window.App && App.renderBudget) App.renderBudget();
+  if (window.App && App.renderGigs) App.renderGigs();
 }
 function rawInputs(){
-  const o = { __status: status, budget: JSON.parse(JSON.stringify(VS.budget)), budgetMode: VS.budgetMode, linkHousing: VS.linkHousing, budgetExample: VS.budgetExample };
+  const o = { __status: status, budget: JSON.parse(JSON.stringify(VS.budget)), budgetMode: VS.budgetMode, linkHousing: VS.linkHousing, budgetExample: VS.budgetExample, gigs: JSON.parse(JSON.stringify(VS.gigs)) };
   for (const k of Object.keys(FIELDS)) { const el = $(k); const s = spec(k);
     o[k] = s.bool ? el.checked : (s.sel ? el.value : (parseFloat(el.value) || 0)); }
   return o;
@@ -66,6 +68,8 @@ function readParams(){
   p.convBracket = parseFloat(raw.convBracket);
   p.convStopAge = 0;
   applyHousingLink(p);
+  // Listed gigs and contracts add to the yearly side-income totals typed in the box
+  { const gs = E.gigSummary(VS.gigs); p.gigs = gs; p.otherSEIncome = (p.otherSEIncome || 0) + gs.income; p.otherSEExpenses = (p.otherSEExpenses || 0) + gs.cost; }
   p.cashGiving = Object.entries(VS.budget).filter(([k]) => k.startsWith('g_')).reduce((a, [, v]) => a + (+v || 0), 0) * 12;
   return p;
 }
@@ -125,7 +129,7 @@ $('btnTaxReset').onclick = () => {
 let last = null, timer = null;
 let pendingFast = false;
 function schedule(fast){ clearTimeout(timer); pendingFast = !!fast; timer = setTimeout(() => recalc(pendingFast), fast ? 40 : 200); }
-const NOCALC = /^(tx\d+|scenName|aiKey|chatInput|learnSearch|wz|demo|sl-|aEmail|aPass|vP|nPw|nVp|b_|pl-|linkHousing)/;
+const NOCALC = /^(stub|tx\d+|scenName|aiKey|chatInput|learnSearch|wz|demo|sl-|aEmail|aPass|vP|nPw|nVp|b_|pl-|linkHousing)/;
 document.addEventListener('input', e => { const t = e.target; if (t.matches('input,select') && t.type !== 'range' && !NOCALC.test(t.id || 'x') && !t.closest('.wizard')) schedule(); });
 document.addEventListener('change', e => { const t = e.target; if (t.matches('input[type=checkbox],select') && A_FIELD(t.id)) schedule(); });
 function A_FIELD(id){ return Object.prototype.hasOwnProperty.call(FIELDS, id); }
@@ -234,6 +238,11 @@ function renderOtherIncome(r){
   el.innerHTML = `<div class="setaside">
     ${'<div class="mini-kpis"><div><span class="eyebrow">Expected this year</span><b>' + fmt(net) + '</b></div><div><span class="eyebrow">Tax on it</span><b>' + fmt(extra) + '</b></div><div><span class="eyebrow">Set aside from each payment</span><b style="color:var(--accent)">' + Math.round(pct * 100) + '%</b></div></div>'}
     <p class="small" style="margin:0">That includes ${fmt(t.otherSECA)} of self-employment tax plus income tax. Pick one way to handle it:</p>
+    ${(() => { const g = r.p.gigs; if (!g || !g.count) return '';
+      const rows = E.gigPeriods(g).map((q, i) => ({ q, i, net: Math.max(0, q.income - q.cost) })).filter(x => x.q.income > 0 || x.q.cost > 0);
+      if (!rows.length) return '';
+      return `<table class="ledger small"><tr><th>When you are paid</th><th class="r">Income</th><th class="r">Set aside</th><th class="r">By</th></tr>${rows.map(({ q, i, net }) => { const due = t.setAside.dueDates[i];
+        return `<tr><td>${q.label}</td><td class="r">${fmt(q.income)}</td><td class="r"><b>${fmt(net * pct)}</b></td><td class="r">${due < today ? 'Now (past due)' : d(due)}</td></tr>`; }).join('')}</table>`; })()}
     <ol class="small" style="margin:0;padding-left:20px;display:grid;gap:4px">
       <li><strong>Raise church withholding</strong> by about ${fmt(extra / 12)}/mo. Withholding counts as paid evenly through the year, so it covers irregular income without quarterly deadlines.</li>
       <li><strong>Hold it in a high-yield savings account.</strong> Move ${Math.round(pct * 100)}% of each payment into a separate "tax" account, earn interest, and pay from it.</li>
